@@ -10,7 +10,7 @@ load_dotenv()
 @tool
 def search_semantic_scholar(
     query: str, 
-    limit: int = 10
+    limit: int = 5
 ) -> List[Dict[str, Any]]:
     """
     Search papers via the Semantic Scholar Graph API.

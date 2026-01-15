@@ -6,14 +6,6 @@ from langgraph.graph import MessagesState
 from pydantic import BaseModel, Field
 
 
-class ConductSearch(BaseModel):
-    """Call this tool to conduct a single Semantic Scholar search."""
-
-    query: str = Field(
-        description="Keyword-based Semantic Scholar query"
-    )
-
-
 class SearchComplete(BaseModel):
     """Call this tool to indicate that the paper search is complete."""
 

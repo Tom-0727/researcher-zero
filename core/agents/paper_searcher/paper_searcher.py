@@ -14,7 +14,6 @@ from core.agents.paper_searcher.prompts import (
     get_system_prompt,
 )
 from core.agents.paper_searcher.state import (
-    ConductSearch,
     PaperResult,
     PaperSearcherState,
     SearchComplete,
@@ -39,11 +38,11 @@ async def paper_searcher_think(
         "model": configurable.paper_searcher_think_model,
         "model_provider": "openai",
         "max_tokens": 8000,
-        "temperature": 0.4,
+        "temperature": 0.1,
         "timeout": 120,
     }
 
-    actions = [ConductSearch, SearchComplete]
+    actions = [search_semantic_scholar, SearchComplete]
     think_model = (
         configurable_model
         .bind_tools(actions, tool_choice="required")
@@ -86,31 +85,28 @@ async def paper_searcher_act(
         raise ValueError("Expected tool calls, but none were returned.")
 
     if any(
-        tool_call["name"] == "SearchComplete"
+        tool_call["name"] == SearchComplete.__name__
         for tool_call in most_recent_message.tool_calls
     ):
         return Command(goto=END)
 
-    conduct_search_calls = [
+    search_tool_name = search_semantic_scholar.name
+    search_calls = [
         tool_call for tool_call in most_recent_message.tool_calls
-        if tool_call["name"] == "ConductSearch"
+        if tool_call["name"] == search_tool_name
     ]
-    if not conduct_search_calls:
-        raise ValueError("Expected ConductSearch tool call.")
-    if len(conduct_search_calls) > 1:
-        raise ValueError("Only one ConductSearch call is allowed per turn.")
+    if not search_calls:
+        raise ValueError(f"Expected {search_tool_name} tool call.")
 
-    tool_call = conduct_search_calls[0]
-    query = (tool_call.get("args", {}) or {}).get("query", "").strip()
+    tool_call = search_calls[0]
+    tool_args = tool_call.get("args", {}) or {}
+    query = (tool_args.get("query") or "").strip()
     if not query:
-        raise ValueError("ConductSearch.query cannot be empty.")
+        raise ValueError(f"{search_tool_name}.query cannot be empty.")
 
     logger.info(f"Running Semantic Scholar search for: {query}")
     raw_results = await search_semantic_scholar.ainvoke(
-        {
-            "query": query,
-            "limit": configurable.max_search_results,
-        }
+        {"query": query, "limit": configurable.max_search_results}
     )
 
     normalized_results: List[PaperResult] = []

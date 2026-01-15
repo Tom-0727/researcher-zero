@@ -54,8 +54,8 @@ Decide the next Semantic Scholar search query, or finish the search.
 </Information Seeking Task>
 
 <Instructions>
-1. Output exactly one tool call: ConductSearch or SearchComplete.
-2. For ConductSearch, provide ONE keyword-based query (no natural language).
+1. Output exactly one tool call: search_semantic_scholar or SearchComplete.
+2. For search_semantic_scholar, provide ONE keyword-based query.
 3. Use double quotes for exact phrases or paper titles.
 4. Avoid repeating any previous queries.
 5. Stop when you believe the task is sufficiently covered.
