@@ -1,37 +1,52 @@
+import os
 import requests
-import time
 from typing import List, Dict, Any
+from dotenv import load_dotenv
 from core.utils.logs import logger
+from langchain.tools import tool
 
+load_dotenv()
+
+@tool
 def search_semantic_scholar(
     query: str, 
-    limit: int = 10, 
-    api_key: str = None, 
-    is_survey: bool = False
+    limit: int = 10
 ) -> List[Dict[str, Any]]:
     """
-    使用 Semantic Scholar Graph API 搜索论文。
-    
+    Search papers via the Semantic Scholar Graph API.
+
+    IMPORTANT: This tool uses a STRICT keyword-based academic search engine. It does NOT understand natural-language questions. You MUST use a keyword-based query following the rules below BEFORE calling this tool.
+
+    Query generation rules:
+    1. Strip stop words such as: "find", "papers about", "research on",
+       "what is", "recent", "how do".
+    2. Use double quotes for specific technical phrases or paper titles
+       (e.g., "Attention Is All You Need", "Zero-shot learning").
+    3. Be specific: prefer method names, model names, datasets, or tasks.
+    4. Do NOT pass natural language questions as the query.
+
+    Examples:
+    - User: How do large language models handle hallucination?
+      Query: "Large Language Models" hallucination mitigation
+
+    - User: Find me the original transformer paper
+      Query: "Attention Is All You Need"
+
+    - User: Surveys about graph neural networks
+      Query: "Graph Neural Networks" survey
+
     Args:
-        query: 搜索关键词 (例如 "RAG with knowledge graphs")
-        limit: 返回结果数量 (默认 10)
-        api_key: 你的 S2 API Key (推荐申请，否则限制每秒1次请求)
-        is_survey: 是否强制搜索综述类文章
-    
+        query: Keyword-based search string generated using the rules above
+        limit: Number of results to return (default 10)
+
     Returns:
-        包含论文元数据的字典列表
+        A list of dictionaries containing paper metadata.
     """
     
     # 1. 基础 Endpoint
     base_url = "https://api.semanticscholar.org/graph/v1/paper/search"
     
-    # 2. 优化 Query：如果 Agent 意图是找综述，自动注入关键词
-    # 参考自 s2-folks 社区经验，显式添加 "review" 或 "survey" 往往比单纯依靠相关性排序更有效
-    final_query = query
-    if is_survey:
-        final_query = f'{query} ("literature review" | "survey" | "state of the art")'
-    
-    # 3. 指定返回字段 (Fields)
+    # 2. 指定返回字段 (Fields)
     # ReAct Agent 需要摘要(abstract)来判断相关性，需要引用数(citationCount)来判断重要性
     fields = ",".join([
         "paperId", 
@@ -43,14 +58,16 @@ def search_semantic_scholar(
     ])
     
     params = {
-        "query": final_query,
+        "query": query,
         "limit": limit,
         "fields": fields,
-        # 'offset': 0 # 如果需要翻页可以加这个参数
     }
     
+    api_key = os.getenv("S2_API_KEY")
+
     headers = {}
     if api_key:
+        logger.info(f"Using API key for Semantic Scholar")
         headers["x-api-key"] = api_key
         
     try:
@@ -59,22 +76,22 @@ def search_semantic_scholar(
         
         # 5. 错误处理
         if response.status_code == 429:
-            return [{"error": "Rate limit exceeded. Please wait or use an API Key."}]
+            logger.warning("Semantic Scholar rate limit exceeded (HTTP 429).")
+            return []
         
         response.raise_for_status()
         data = response.json()
         
         # 6. 数据清洗
-        # 某些论文可能没有摘要，Agent 需要知道这一点
         results = []
         for paper in data.get("data", []):
             results.append({
-                "id": paper.get("paperId"),
-                "title": paper.get("title"),
-                "year": paper.get("year"),
-                "citations": paper.get("citationCount"),
-                "abstract": paper.get("abstract") if paper.get("abstract") else "No abstract available.",
-                "link": paper.get("url")
+                "id": paper.get("paperId") or None,
+                "title": paper.get("title") or "No title available",
+                "year": paper.get("year") or None,
+                "citations": paper.get("citationCount") or 0,
+                "abstract": paper.get("abstract") or "No abstract available.",
+                "link": paper.get("url") or None
             })
             
         return results
@@ -82,11 +99,12 @@ def search_semantic_scholar(
     except Exception as e:
         return [{"error": f"Search failed: {str(e)}"}]
 
-# --- 测试调用 ---
+
 if __name__ == "__main__":
-    # 示例：搜索 RAG 相关的综述
-    papers = search_semantic_scholar("Agent Memory", limit=3, is_survey=True)
-    
-    for p in papers:
-        print(f"[{p['year']}] {p['title']} (Cited: {p['citations']})")
-        print(f"   Abstract snippet: {p['abstract'][:100]}...\n")
+    # 示例
+    papers = search_semantic_scholar.invoke({
+        "query": '"Large Language Models" hallucination mitigation',
+        "limit": 3
+    })
+
+    print(papers)
