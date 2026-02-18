@@ -1,5 +1,7 @@
 *.log
 logs/
+cache/
+tmp*
 
 # Environment variables
 .env

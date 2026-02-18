@@ -4,8 +4,7 @@ from langchain.tools import tool
 @tool
 def search_arxiv(query: str, limit: int = 5):
     """
-    arXiv 搜索兜底函数。
-    注意：arXiv 的搜索语法比较“硬”，建议 Query 只保留核心名词。
+    arXiv 搜索
     """
     try:
         # 构造 Client，通过 delay 和 num_retries 保证稳定性
