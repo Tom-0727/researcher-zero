@@ -1,22 +1,18 @@
 ---
 name: plan
-description: Structured planning and deterministic plan edits for agents. Use when the agent needs to create a plan list from model output, or update an existing plan via SEARCH/REPLACE-style patches (insert, delete, modify, append).
+description: Apply SEARCH/REPLACE patch to a <PLAN> file. Input plan path + patch text, output updated plan content and persist to file.
+entry: python scripts/plan_tool.py
 ---
 
 # Plan Skill
 
-Use `scripts/plan_tool.py` as the single parser/editor.
+This skill only provides one capability:
+
+- Input: plan file path + patch text (SEARCH/REPLACE format)
+- Output: patched `<PLAN>...</PLAN>` content
+- Side effect: write patched content back to the same plan file (create file if missing)
 
 ## Output Rules For LLM
-
-Always output plan text in this exact format:
-
-```text
-<PLAN>
-- First step
-- Second step
-</PLAN>
-```
 
 Always output plan patch text in this exact format (one or more blocks):
 
@@ -35,13 +31,6 @@ Use patch blocks for operations:
 - Insert: set `SEARCH` to anchor line, set `REPLACE` to `anchor + new line(s)` (or `new line(s) + anchor`).
 - Append: keep `SEARCH` empty, set `REPLACE` to new line(s).
 
-## Script API
+## Agent Execution
 
-- `parse_plan(text: str) -> list[str]`
-- `apply_patch(plan: list[str], patch_text: str) -> list[str]`
-
-## CLI
-
-- Parse from file: `python core/skills/plan/scripts/plan_tool.py parse plan.txt`
-- Parse from stdin: `python core/skills/plan/scripts/plan_tool.py parse -`
-- Patch: `python core/skills/plan/scripts/plan_tool.py patch --plan plan.txt --patch patch.txt`
+- `python scripts/plan_tool.py --plan /abs/path/plan.md --patch "<PATCH_TEXT>"`

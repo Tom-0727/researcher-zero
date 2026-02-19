@@ -1,9 +1,7 @@
-"""Deterministic plan parser and SEARCH/REPLACE-style plan editor."""
+"""Deterministic SEARCH/REPLACE patcher for <PLAN> files."""
 
 import argparse
-import json
 import re
-import sys
 from pathlib import Path
 
 PLAN_RE = re.compile(r"<PLAN>\s*(.*?)\s*</PLAN>", re.DOTALL)
@@ -35,6 +33,12 @@ def _render_plan(items: list[str]) -> str:
     if not items:
         return ""
     return "\n".join(f"- {item.strip()}" for item in items) + "\n"
+
+
+def render_plan_block(items: list[str]) -> str:
+    """Render plan items to canonical <PLAN> block text."""
+    body = _render_plan(items).rstrip("\n")
+    return f"<PLAN>\n{body}\n</PLAN>" if body else "<PLAN>\n</PLAN>"
 
 
 def _normalize_patch_block(block_text: str) -> str:
@@ -112,34 +116,28 @@ def apply_patch(plan: list[str], patch_text: str) -> list[str]:
     return parse_plan(f"<PLAN>\n{content}</PLAN>")
 
 
-def _read_text(path: str) -> str:
-    """Read UTF-8 text from file path or stdin marker '-'."""
-    if path == "-":
-        return sys.stdin.read()
-    return Path(path).read_text(encoding="utf-8")
+def patch_plan_file(plan_path: str | Path, patch_text: str) -> str:
+    """Apply patch to a plan file, persist the result, and return new plan text."""
+    path = Path(plan_path)
+    if path.exists():
+        original = path.read_text(encoding="utf-8")
+    else:
+        original = "<PLAN>\n</PLAN>\n"
+    patched = apply_patch(parse_plan(original), patch_text)
+    output = render_plan_block(patched)
+    # Always write canonical block back, so subsequent patches stay deterministic.
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"{output}\n", encoding="utf-8")
+    return output
 
 
 def main() -> None:
-    """Provide CLI access for parsing and patching plans."""
-    parser = argparse.ArgumentParser(description="Plan parser/editor")
-    sub = parser.add_subparsers(dest="cmd", required=True)
-
-    parse_cmd = sub.add_parser("parse", help="Parse <PLAN> text to JSON list")
-    parse_cmd.add_argument("input_path", help="Input file path or '-' for stdin")
-
-    patch_cmd = sub.add_parser("patch", help="Apply patch to plan")
-    patch_cmd.add_argument("--plan", required=True, help="Plan text file")
-    patch_cmd.add_argument("--patch", required=True, help="Patch text file")
-
+    """CLI: input plan path + patch text, output patched <PLAN> block text."""
+    parser = argparse.ArgumentParser(description="Apply SEARCH/REPLACE patch to a <PLAN> file")
+    parser.add_argument("--plan", required=True, help="Path to plan file")
+    parser.add_argument("--patch", required=True, help="Patch text with SEARCH/REPLACE blocks")
     args = parser.parse_args()
-    if args.cmd == "parse":
-        plan = parse_plan(_read_text(args.input_path))
-        print(json.dumps(plan, ensure_ascii=False))
-        return
-
-    plan = parse_plan(_read_text(args.plan))
-    patched = apply_patch(plan, _read_text(args.patch))
-    print(json.dumps(patched, ensure_ascii=False))
+    print(patch_plan_file(args.plan, args.patch))
 
 
 if __name__ == "__main__":
