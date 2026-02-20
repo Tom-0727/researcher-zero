@@ -1,55 +1,72 @@
-from core.skills.plan.scripts.plan_tool import apply_patch, parse_plan
+import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+from core.skills.plan.scripts.plan_tool import mutate_plan_file
 
 
 def main() -> None:
-    print("== 1) 解析计划 ==")
-    plan_text = """<PLAN>
-- 收集需求
-- 设计方案
-- 实现功能
-</PLAN>
-"""
-    plan = parse_plan(plan_text)
-    print("parsed:", plan)
+    with TemporaryDirectory(prefix="plan-skill-") as tmp_dir:
+        plan_path = Path(tmp_dir) / "plan.md"
 
-    print("\n== 2) 修改步骤 ==")
-    patch_modify = """<<<<<<< SEARCH
-- 设计方案
-=======
-- 细化技术方案
->>>>>>> REPLACE
-"""
-    plan = apply_patch(plan, patch_modify)
-    print("after modify:", plan)
+        print("== 1) 从无文件开始，批量初始化 ==")
+        print(
+            mutate_plan_file(
+                plan_path=plan_path,
+                op="upsert",
+                items_json=json.dumps(
+                    [
+                        {"status": "todo", "title": "收集需求"},
+                        {"status": "todo", "title": "设计方案"},
+                        {"status": "todo", "title": "实现功能"},
+                    ],
+                    ensure_ascii=False,
+                ),
+                ids_csv=None,
+            )
+        )
 
-    print("\n== 3) 删除步骤 ==")
-    patch_delete = """<<<<<<< SEARCH
-- 收集需求
-=======
->>>>>>> REPLACE
-"""
-    plan = apply_patch(plan, patch_delete)
-    print("after delete:", plan)
+        print("\n== 2) 批量 upsert：修改 + 追加 ==")
+        print(
+            mutate_plan_file(
+                plan_path=plan_path,
+                op="upsert",
+                items_json=json.dumps(
+                    [
+                        {"id": 2, "status": "doing", "title": "细化技术方案"},
+                        {"status": "todo", "title": "验证结果"},
+                    ],
+                    ensure_ascii=False,
+                ),
+                ids_csv=None,
+            )
+        )
 
-    print("\n== 4) 插入步骤（锚点替换） ==")
-    patch_insert = """<<<<<<< SEARCH
-- 细化技术方案
-=======
-- 细化技术方案
-- 拆解任务
->>>>>>> REPLACE
-"""
-    plan = apply_patch(plan, patch_insert)
-    print("after insert:", plan)
+        print("\n== 3) 批量 remove：删除多个 id，并自动重排 ==")
+        print(
+            mutate_plan_file(
+                plan_path=plan_path,
+                op="remove",
+                items_json=None,
+                ids_csv="1,3",
+            )
+        )
 
-    print("\n== 5) 追加步骤 ==")
-    patch_append = """<<<<<<< SEARCH
-=======
-- 验证结果
->>>>>>> REPLACE
-"""
-    plan = apply_patch(plan, patch_append)
-    print("after append:", plan)
+        print("\n== 4) 再次 upsert：按新动态 id 更新状态 ==")
+        print(
+            mutate_plan_file(
+                plan_path=plan_path,
+                op="upsert",
+                items_json=json.dumps(
+                    [
+                        {"id": 1, "status": "done", "title": "细化技术方案"},
+                        {"id": 2, "status": "doing", "title": "验证结果"},
+                    ],
+                    ensure_ascii=False,
+                ),
+                ids_csv=None,
+            )
+        )
 
 
 if __name__ == "__main__":

@@ -1,36 +1,42 @@
 ---
 name: plan
-description: Apply SEARCH/REPLACE patch to a <PLAN> file. Input plan path + patch text, output updated plan content and persist to file.
+description: Append todo steps to a <PLAN> file or remove steps by id. Agent should only do add/remove operations.
 entry: python scripts/plan_tool.py
 ---
 
 # Plan Skill
 
-This skill only provides one capability:
+Use this skill only for plan structure edits:
+- add new steps
+- remove existing steps
 
-- Input: plan file path + patch text (SEARCH/REPLACE format)
-- Output: patched `<PLAN>...</PLAN>` content
-- Side effect: write patched content back to the same plan file (create file if missing)
+Args for `run_skill_entry("plan", args)`:
+- `--plan /abs/path/plan.md --op upsert --items-json "<JSON_ARRAY>"`
+- `--plan /abs/path/plan.md --op remove --ids "1,3,5"`
 
-## Output Rules For LLM
+Output:
+- updated `<PLAN>...</PLAN>` text
+- write back to the same `--plan` file (canonical format)
 
-Always output plan patch text in this exact format (one or more blocks):
+Plan line format (read-only for Agent):
 
 ```text
-<<<<<<< SEARCH
-- line(s) to find in current plan
-=======
-- replacement line(s)
->>>>>>> REPLACE
+- [status][id] title
 ```
 
-Use patch blocks for operations:
+Rules:
+- `id` is dynamic sequence id (`1..N`) and is auto-reindexed after each write.
+- For `upsert`, append only:
+  - each item must be `{"status":"todo","title":"..."}`.
+  - do not include `id`.
+  - do not use `upsert` to modify existing items.
+- For `remove`, you may delete one or more ids in one call.
+- Do not change status (`todo/doing/done/aborted`) via this skill.
 
-- Modify: set `SEARCH` to old line(s), `REPLACE` to new line(s).
-- Delete: set `SEARCH` to line(s), keep `REPLACE` empty.
-- Insert: set `SEARCH` to anchor line, set `REPLACE` to `anchor + new line(s)` (or `new line(s) + anchor`).
-- Append: keep `SEARCH` empty, set `REPLACE` to new line(s).
-
-## Agent Execution
-
-- `python scripts/plan_tool.py --plan /abs/path/plan.md --patch "<PATCH_TEXT>"`
+Args examples:
+- Initialize plan with multiple steps:
+  - `--plan /abs/path/plan.md --op upsert --items-json "[{\"status\":\"todo\",\"title\":\"分析 memory 核心维度\"},{\"status\":\"todo\",\"title\":\"调研代表性系统\"}]"`
+- Append more steps:
+  - `--plan /abs/path/plan.md --op upsert --items-json "[{\"status\":\"todo\",\"title\":\"提炼设计原则\"}]"`
+- Batch remove:
+  - `--plan /abs/path/plan.md --op remove --ids "2,4"`
