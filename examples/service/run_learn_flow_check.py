@@ -4,8 +4,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
 
-from core.researcher_zero import init_research_workspace, learn_graph
-from core.researcher_zero.learn.plan import load_plan_items_from_file
+from core.services import init_research_workspace, learn_graph
+from core.services.learn.plan import load_plan_items_from_file
 
 
 # 直接在此处修改测试配置，不再读取命令行参数。
@@ -127,7 +127,7 @@ def build_runnable_config() -> dict[str, dict[str, Any]]:
     configurable: dict[str, Any] = {
         "max_plan_steps": MAX_PLAN_STEPS,
         "max_react_turns_per_subtask": MAX_REACT_TURNS,
-        "skill_allow_run_entry": True,
+        "skill_roots": ["core/skills"],
     }
     if PLAN_MODEL.strip():
         configurable["plan_model"] = PLAN_MODEL.strip()
