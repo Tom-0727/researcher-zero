@@ -76,7 +76,7 @@ design.md
 - `get_final_summary_prompt`
 
 其中 `get_react_think_prompt` 已内置 read 约束提示：
-- 仅允许 `run_skill_entry("read", args)`；
+- 仅允许 `run_skill_entry("read", entry_args)`；
 - 顺序必须 `ingest -> outline/find -> read(--chunk-ids)`；
 - 禁止整文注入上下文。
 
@@ -140,7 +140,7 @@ design.md
   - 非预期格式也抛错（不做兜底）
 
 ### 6.4 read 能力执行层强约束
-针对 `run_skill_entry("read", args)`，当前代码做了前置与后置双校验：
+针对 `run_skill_entry("read", entry_args)`，当前代码做了前置与后置双校验：
 
 前置（执行前）：
 - `_parse_read_entry_args`：
@@ -212,9 +212,7 @@ design.md
 - `max_plan_steps`
 - `max_react_turns_per_subtask`
 - `skill_roots`
-- `skill_allow_run_entry`
 - `skill_command_timeout`
-- `skill_allowed_entry_programs`
 
 `from_runnable_config` 会同时读取：
 - `configurable` 参数

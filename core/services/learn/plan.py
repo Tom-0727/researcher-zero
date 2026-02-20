@@ -8,9 +8,9 @@ from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 
-from core.researcher_zero.learn.configuration import LearnConfig
-from core.researcher_zero.learn.prompts import get_plan_instruction
-from core.researcher_zero.learn.state import LearnState, PlanItem
+from core.services.learn.configuration import LearnConfig
+from core.services.learn.prompts import get_plan_instruction
+from core.services.learn.state import LearnState, PlanItem
 from core.skills.plan import build_plan_tools
 from core.skills.plan.scripts.plan_tool import mutate_plan_file
 

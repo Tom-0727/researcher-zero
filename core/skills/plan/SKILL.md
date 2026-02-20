@@ -10,7 +10,7 @@ Use this skill only for plan structure edits:
 - add new steps
 - remove existing steps
 
-Args for `run_skill_entry("plan", args)`:
+Args for `run_skill_entry("plan", entry_args)`:
 - `--plan /abs/path/plan.md --op upsert --items-json "<JSON_ARRAY>"`
 - `--plan /abs/path/plan.md --op remove --ids "1,3,5"`
 

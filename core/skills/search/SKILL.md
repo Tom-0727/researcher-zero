@@ -8,7 +8,7 @@ entry: python scripts/search_tool.py
 
 Use this skill to execute search through one CLI entry.
 
-Args for `run_skill_entry("search", args)`:
+Args for `run_skill_entry("search", entry_args)`:
 - `--provider semantic_scholar --query "<keywords>" [--limit 5]`
 - `--provider arxiv --query "<keywords>" [--limit 5]`
 - `--provider general --query "<query>" [--limit 5] [--kwargs-json "<JSON_OBJECT>"]`

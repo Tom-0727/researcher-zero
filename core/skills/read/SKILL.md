@@ -8,7 +8,7 @@ entry: python scripts/read_tool.py
 
 Use this skill for long-document reading with strict chunk-based access.
 
-Args for `run_skill_entry("read", args)`:
+Args for `run_skill_entry("read", entry_args)`:
 - `--workspace /abs/path ingest --source "<url_or_local_path>"`
 - `--workspace /abs/path outline --doc-id "<doc_id>"`
 - `--workspace /abs/path find --doc-id "<doc_id>" --query "<keywords>"`

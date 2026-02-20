@@ -10,7 +10,7 @@ def build_entry_args(
     limit: int = 5,
     kwargs_json: dict | None = None,
 ) -> str:
-    """组装 run_skill_entry("search", args) 的参数字符串。"""
+    """组装 run_skill_entry("search", entry_args) 的参数字符串。"""
     parts = ["--provider", provider, "--query", query, "--limit", str(limit)]
     if kwargs_json is not None:
         parts.extend(["--kwargs-json", json.dumps(kwargs_json, ensure_ascii=False)])
@@ -25,13 +25,13 @@ def run_search_entry(
     kwargs_json: dict | None = None,
 ) -> str:
     """执行 search skill 的一次 entry 调用。"""
-    args = build_entry_args(
+    entry_args = build_entry_args(
         provider=provider,
         query=query,
         limit=limit,
         kwargs_json=kwargs_json,
     )
-    return toolkit.run_skill_entry("search", args)
+    return toolkit.run_skill_entry("search", entry_args)
 
 
 def main() -> None:

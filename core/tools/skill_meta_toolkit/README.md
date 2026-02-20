@@ -113,9 +113,9 @@
 
 ### 入口命令执行（可选）
 
-- `run_skill_entry(skill_name, args="")`
+- `run_skill_entry(skill_name, entry_args="")`
   - 仅在 `allow_run_entry=True` 时可用
-  - 执行 `SKILL.md` frontmatter 的 `entry` 命令，并拼接额外参数 `args`
+  - 执行 `SKILL.md` frontmatter 的 `entry` 命令，并拼接额外参数 `entry_args`
   - 程序名必须在白名单 `allowed_entry_programs`
   - 在技能目录下执行，使用 `subprocess.run(..., capture_output=True, timeout=command_timeout)`
   - 返回：

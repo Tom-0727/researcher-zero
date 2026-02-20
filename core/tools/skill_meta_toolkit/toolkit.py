@@ -312,7 +312,7 @@ class SkillToolkit:
       )
     return "\n\n".join(blocks)
 
-  def run_skill_entry(self, skill_name: str, args: str = "") -> str:
+  def run_skill_entry(self, skill_name: str, entry_args: str = "") -> str:
     if not self.allow_run_entry:
       return "Entry execution is disabled. Set allow_run_entry=True to enable it."
     skill = self._skill(skill_name)
@@ -321,8 +321,8 @@ class SkillToolkit:
     if not skill.entry:
       return "This skill does not define an entry command."
     cmd = shlex.split(skill.entry)
-    if args.strip():
-      cmd.extend(shlex.split(args))
+    if entry_args.strip():
+      cmd.extend(shlex.split(entry_args))
     program = Path(cmd[0]).name.lower()
     if program not in self.allowed_entry_programs:
       allowed = ", ".join(self.allowed_entry_programs)

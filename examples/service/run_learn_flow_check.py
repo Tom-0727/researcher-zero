@@ -9,14 +9,14 @@ from core.researcher_zero.learn.plan import load_plan_items_from_file
 
 
 # 直接在此处修改测试配置，不再读取命令行参数。
-TASK = "调研 LangGraph ReAct 模式并沉淀可复用的设计要点到 workspace"
-WORKSPACE = ""  # 为空时自动创建 workspace
+TASK = "调研包括 ReAct 模式在内的 Agent 运作设计，沉淀知识"
+WORKSPACE = "/Users/tom/Codes/researcher-zero/cache/agent"  # 为空时自动创建 workspace
 KEEP_WORKSPACE = False  # WORKSPACE 为空时，是否保留到 ./cache
-PLAN_MODEL = ""
-REACT_MODEL = ""
-SUMMARY_MODEL = ""
-MAX_PLAN_STEPS = 6
-MAX_REACT_TURNS = 4
+PLAN_MODEL = "deepseek"
+REACT_MODEL = "deepseek"
+SUMMARY_MODEL = "deepseek"
+MAX_PLAN_STEPS = 3
+MAX_REACT_TURNS = 5
 
 
 def _read_attr(item: Any, key: str) -> Any:

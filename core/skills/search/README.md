@@ -6,7 +6,7 @@
   - `semantic_scholar`
   - `arxiv`
   - `general`（Tavily）
-- 统一由 `run_skill_entry("search", args)` 调用，stdout 返回 JSON。
+- 统一由 `run_skill_entry("search", entry_args)` 调用，stdout 返回 JSON。
 
 ## 2. 文件与入口
 

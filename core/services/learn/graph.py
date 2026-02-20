@@ -4,20 +4,20 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command
 
-from core.researcher_zero.learn.configuration import LearnConfig
-from core.researcher_zero.learn.context_loader import (
+from core.services.learn.configuration import LearnConfig
+from core.services.learn.context_loader import (
     build_plan_context_payload,
     resolve_workspace,
 )
-from core.researcher_zero.learn.plan import (
+from core.services.learn.plan import (
     load_plan_items_from_file,
     run_plan_task,
     start_next_subtask,
     transition_plan_item_status,
 )
-from core.researcher_zero.learn.react import react_subgraph
-from core.researcher_zero.learn.state import LearnState
-from core.researcher_zero.learn.summarize import (
+from core.services.learn.react import react_subgraph
+from core.services.learn.state import LearnState
+from core.services.learn.summarize import (
     run_finalize_summary,
     run_subtask_summary,
 )
@@ -26,7 +26,7 @@ from core.tools.skill_meta_toolkit import build_skill_capability
 
 async def validate_input(
     state: LearnState,
-    _config: RunnableConfig,
+    config: RunnableConfig,
 ) -> Command[Literal["build_plan_context"]]:
     """Validate required input fields and normalize workspace path."""
     task = state.get("task", "").strip()
@@ -37,7 +37,7 @@ async def validate_input(
         raise ValueError("workspace cannot be empty.")
 
     resolved_workspace = str(resolve_workspace(workspace))
-    return Command(
+    return Command[Literal['build_plan_context']](
         goto="build_plan_context",
         update={
             "workspace": resolved_workspace,
@@ -54,9 +54,8 @@ async def build_plan_context(
     configurable = LearnConfig.from_runnable_config(config)
     capability = build_skill_capability(
         roots=configurable.skill_roots,
-        allow_run_entry=configurable.skill_allow_run_entry,
+        allow_run_entry=True,
         command_timeout=configurable.skill_command_timeout,
-        allowed_entry_programs=tuple(configurable.skill_allowed_entry_programs),
     )
     payload = build_plan_context_payload(
         workspace=state["workspace"],
@@ -100,7 +99,7 @@ async def plan_task(
 
 async def select_next_subtask(
     state: LearnState,
-    _config: RunnableConfig,
+    config: RunnableConfig,
 ) -> Command[Literal["run_react_subgraph", "finalize_summary"]]:
     """Refresh plan snapshot and pick next todo item."""
     plan_items = load_plan_items_from_file(state["plan_file"])

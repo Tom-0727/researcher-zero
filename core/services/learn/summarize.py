@@ -6,14 +6,14 @@ from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
-from core.researcher_zero.learn.configuration import LearnConfig
-from core.researcher_zero.learn.prompts import (
+from core.services.learn.configuration import LearnConfig
+from core.services.learn.prompts import (
     get_final_summary_prompt,
     get_subtask_summary_prompt,
     render_plan_view,
     render_subtask_summaries,
 )
-from core.researcher_zero.learn.state import LearnState, SubtaskSummary
+from core.services.learn.state import LearnState, SubtaskSummary
 
 load_dotenv()
 configurable_model = init_chat_model(

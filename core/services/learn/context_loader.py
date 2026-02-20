@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from core.researcher_zero.learn.prompts import get_plan_system_prompt
+from core.services.learn.prompts import get_plan_system_prompt
 
 REQUIRED_CONTEXT_PATHS = {
     "basic_info": "Basic_Context/basic_info.md",

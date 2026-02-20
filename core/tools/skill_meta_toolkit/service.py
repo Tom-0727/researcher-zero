@@ -62,7 +62,7 @@ def build_agent_tools(toolkit: SkillToolkit) -> list[Any]:
   if toolkit.allow_run_entry:
 
     @tool
-    def run_skill_entry(skill_name: str, args: str = "") -> str:
+    def run_skill_entry(skill_name: str, entry_args: str = "") -> str:
       """
       Execute the command declared by `entry` in SKILL.md frontmatter.
 
@@ -70,7 +70,7 @@ def build_agent_tools(toolkit: SkillToolkit) -> list[Any]:
       - only programs in allowed_entry_programs
       - cwd fixed to the skill directory
       """
-      return toolkit.run_skill_entry(skill_name, args)
+      return toolkit.run_skill_entry(skill_name, entry_args)
 
     tools.append(run_skill_entry)
 
@@ -101,4 +101,3 @@ def build_skill_capability(
     tools=build_agent_tools(toolkit),
     toolkit=toolkit,
   )
-

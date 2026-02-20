@@ -1,4 +1,4 @@
-from core.researcher_zero.learn.state import PlanItem, SubtaskSummary
+from core.services.learn.state import PlanItem, SubtaskSummary
 
 
 def get_plan_system_prompt(
@@ -88,7 +88,7 @@ Rules:
 1. Focus only on this subtask and ignore unrelated goals.
 2. Choose exactly one next action: call one tool, or finish this subtask.
 3. If evidence is enough, finish immediately instead of over-calling tools.
-4. For long documents, only use `run_skill_entry("read", args)` with strict order:
+4. For long documents, only use `run_skill_entry("read", entry_args)` with strict order:
    ingest -> outline/find -> read(--chunk-ids).
 5. Never put full document content into context; only keep selected chunk contents.
 """

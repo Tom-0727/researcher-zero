@@ -11,12 +11,12 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command
 from pydantic import BaseModel, Field
 
-from core.researcher_zero.learn.configuration import LearnConfig
-from core.researcher_zero.learn.prompts import (
+from core.services.learn.configuration import LearnConfig
+from core.services.learn.prompts import (
     get_react_think_prompt,
     render_plan_view,
 )
-from core.researcher_zero.learn.state import LearnState
+from core.services.learn.state import LearnState
 from core.tools.skill_meta_toolkit import build_skill_capability
 
 load_dotenv()
@@ -106,9 +106,8 @@ def _build_skill_tools(config: RunnableConfig) -> tuple[LearnConfig, list[Any], 
     configurable = LearnConfig.from_runnable_config(config)
     capability = build_skill_capability(
         roots=configurable.skill_roots,
-        allow_run_entry=configurable.skill_allow_run_entry,
+        allow_run_entry=True,
         command_timeout=configurable.skill_command_timeout,
-        allowed_entry_programs=tuple(configurable.skill_allowed_entry_programs),
     )
     tool_map = {tool_obj.name: tool_obj for tool_obj in capability.tools}
     return configurable, capability.tools, tool_map
@@ -152,13 +151,13 @@ def _parse_chunk_ids(raw: str) -> list[int]:
 
 
 def _extract_run_skill_entry_call(tool_name: str, tool_args: dict[str, Any]) -> tuple[str, str] | None:
-    """Extract run_skill_entry(skill_name, args) payload."""
+    """Extract run_skill_entry(skill_name, entry_args) payload."""
     if tool_name != "run_skill_entry":
         return None
     skill_name = str(tool_args.get("skill_name", "")).strip()
     if not skill_name:
         raise ValueError("run_skill_entry.skill_name cannot be empty.")
-    args_text = str(tool_args.get("args", "")).strip()
+    args_text = str(tool_args.get("entry_args", "")).strip()
     return skill_name, args_text
 
 

@@ -14,7 +14,7 @@
 通过 meta toolkit 调用时使用：
 
 ```text
-run_skill_entry("plan", args)
+run_skill_entry("plan", entry_args)
 ```
 
 ## 3. 数据格式
