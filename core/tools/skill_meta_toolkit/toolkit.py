@@ -177,8 +177,8 @@ class SkillToolkit:
     """
     return "\n".join(
       [
-        "## Skills Runtime",
-        "You can use file-based skills through tools with progressive disclosure.",
+        "## Skills Usage Instructions",
+        "You can use skills through tools with progressive disclosure.",
         "Workflow:",
         "1. Use `list_available_skills` when unsure which skill fits the task.",
         "2. Call `load_skill` before solving domain-specific requests.",

@@ -82,9 +82,7 @@ def _build_react_input_messages(
             )
         ),
         HumanMessage(
-            content=get_react_skills_instruction(
-                skill_runtime_prompt=str(state.get("skill_runtime_prompt", ""))
-            )
+            content=str(state.get("skill_runtime_prompt", ""))
         ),
         HumanMessage(
             content=get_react_think_prompt(
@@ -108,7 +106,14 @@ def _build_skill_tools(config: RunnableConfig) -> tuple[LearnConfig, list[Any], 
         roots=configurable.skill_roots,
         allow_run_entry=True,
         command_timeout=configurable.skill_command_timeout,
+        only_tools=["load_skill", "run_skill_entry"],
     )
+    capability.prompt = """## Skills usage
+
+When you need a skill:
+1. Call **load_skill(skill_name)** first; the response describes what the skill does and how to use it.
+2. Then call **run_skill_entry(skill_name, entry_args)** with the appropriate arguments.
+"""
     tool_map = {tool_obj.name: tool_obj for tool_obj in capability.tools}
     return configurable, capability.tools, tool_map
 
@@ -168,6 +173,8 @@ async def react_think(
         react_turn=react_turn,
         max_react_turns=configurable.max_react_turns_per_subtask,
     )
+
+    breakpoint()
     response = await think_model.ainvoke(messages)
     _pick_single_tool_call(response)
     return Command(

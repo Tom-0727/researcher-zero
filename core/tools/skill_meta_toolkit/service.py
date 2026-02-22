@@ -86,7 +86,11 @@ def build_skill_capability(
   allow_run_entry: bool = False,
   command_timeout: int = 60,
   allowed_entry_programs: Sequence[str] = ("python", "python3", "bash", "sh"),
+  only_tools: Sequence[str] | None = None,
 ) -> SkillCapability:
+  """
+  only_tools: 若提供，则只包含这些名称的 tool（如 "list_available_skills", "load_skill" 等）；None 表示全部。
+  """
   toolkit = SkillToolkit(
     roots=roots,
     max_files=max_files,
@@ -96,8 +100,12 @@ def build_skill_capability(
     command_timeout=command_timeout,
     allowed_entry_programs=allowed_entry_programs,
   )
+  tools = build_agent_tools(toolkit)
+  if only_tools is not None:
+    allowed = frozenset(only_tools)
+    tools = [t for t in tools if t.name in allowed]
   return SkillCapability(
     prompt=toolkit.build_prompt(),
-    tools=build_agent_tools(toolkit),
+    tools=tools,
     toolkit=toolkit,
   )

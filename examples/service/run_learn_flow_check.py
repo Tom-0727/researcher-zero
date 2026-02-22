@@ -3,11 +3,18 @@ from pathlib import Path
 from typing import Any
 
 from core.services import learn_graph
-from core.services.learn.graph import plan_node
+from core.services.learn.configuration import LearnConfig
+from core.services.learn.context_loader import build_learn_context_payload
+from core.services.learn.graph import (
+    plan_node,
+    run_react_subgraph as graph_run_react_subgraph,
+)
+from core.services.learn.state import PlanItem
+from core.tools.skill_meta_toolkit import build_skill_capability
 
 
 # 直接在此处修改测试配置，不再读取命令行参数。
-TASK = "调研包括 ReAct 模式在内的 Agent 运作设计"
+TASK = "调研 ReAct 这种 Agent 运作设计，形成阅读笔记存在 Atomic_Knowledge 目录下"
 WORKSPACE = "/Users/tom/Codes/researcher-zero/cache/agent"
 PLAN_MODEL = "glm"
 REACT_MODEL = "glm"
@@ -84,9 +91,58 @@ async def run_plan_node_check() -> None:
     breakpoint()
 
 
+async def run_react_subgraph_check() -> None:
+    """不经过 plan_node，直接构造最小状态测试 graph.py 的 react_subgraph 节点。"""
+    workspace = Path(WORKSPACE).expanduser().resolve()
+    config = build_runnable_config()
+    task = TASK.strip()
+    learn_config = LearnConfig.from_runnable_config(config)
+    context_payload = build_learn_context_payload(workspace=str(workspace), task=task)
+    capability = build_skill_capability(
+        roots=learn_config.skill_roots,
+        allow_run_entry=True,
+        command_timeout=learn_config.skill_command_timeout,
+    )
+
+    react_state = {
+        "workspace": str(workspace),
+        "task": task,
+        "messages": [],
+        "system_prompt": context_payload["system_prompt"],
+        "skill_runtime_prompt": capability.prompt,
+        "plan_items": [PlanItem(id=1, title=task, status="doing")],
+        "current_index": 0,
+        "current_subtask_id": 1,
+        "current_subtask": task,
+        "react_messages": [],
+        "react_turn": 0,
+        "stop_reason": "",
+        "condensed_messages": [],
+    }
+
+    print(f"[1/4] workspace: {workspace}")
+    print("[2/4] building react-only state ...")
+    print(f"- skills_count: {len(capability.toolkit.skills)}")
+
+    print("[3/4] invoking graph.run_react_subgraph ...")
+    react_command = await graph_run_react_subgraph(state=react_state, config=config)
+    react_update = getattr(react_command, "update", {}) or {}
+    react_messages = react_update.get("react_messages", []) or []
+
+    print("[4/4] react subgraph result snapshot ...")
+    print(f"- goto: {getattr(react_command, 'goto', '')}")
+    print(f"- current_subtask_id: {react_state.get('current_subtask_id', 0)}")
+    print(f"- current_subtask: {react_state.get('current_subtask', '')}")
+    print(f"- react_turn: {react_update.get('react_turn', 0)}")
+    print(f"- stop_reason: {react_update.get('stop_reason', '')}")
+    print(f"- react_message_count: {len(react_messages)}")
+    if react_messages:
+        print(f"- last_message_type: {type(react_messages[-1]).__name__}")
+
+
 def main() -> None:
     """脚本入口。"""
-    asyncio.run(run_flow_check())
+    asyncio.run(run_react_subgraph_check())
 
 
 if __name__ == "__main__":

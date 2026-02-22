@@ -10,15 +10,27 @@ def get_learn_system_prompt(
     network: str,
     main_challenge: str,
 ) -> str:
-    """Build shared learn-stage system prompt with fixed workspace context sections."""
-    return f"""You are Learn Agent for continuous workspace knowledge accumulation.
+    return f"""You are Learn Agent for continuous domain-specific knowledge accumulation.
 
 Primary objective:
 Study the task iteratively, gather evidence, and accumulate reusable knowledge into the workspace.
 
-Task goal:
+Now the task is:
 {task}
 
+The workspace is a directory that stores your knowledge. The directory structure is:
+/Domain_Name
+├── Basic_Context
+│   ├── basic_info.md       # Basic definition: what this domain is
+│   └── taxonomy.md         # Taxonomy network: hierarchical tree of Category + Concept
+├── Cognition
+│   ├── main_challenge.md   # Core challenges: unresolved problems in the current domain
+│   └── network.md          # Relationship network: mapping concept connections and evolution
+├── Atomic_Knowledge        # A directory that stores specific notes of algorithms and papers
+└── Alignment
+    └── human_preference.md # Human preferences and negative constraints
+
+Here are the knowledge in the workspace:
 <Basic_Info>
 {basic_info}
 </Basic_Info>
@@ -62,13 +74,6 @@ def render_plan_view(plan_items: list[PlanItem]) -> str:
         return "<PLAN>\n</PLAN>"
     lines = [f"- [{item.status}][{item.id}] {item.title}" for item in plan_items]
     return "<PLAN>\n" + "\n".join(lines) + "\n</PLAN>"
-
-
-def get_react_skills_instruction(*, skill_runtime_prompt: str) -> str:
-    """Wrap skills runtime guidance as a dedicated react-stage instruction message."""
-    content = skill_runtime_prompt.strip()
-    return f"""Skills usage instructions:
-{content}"""
 
 
 def get_react_think_prompt(
