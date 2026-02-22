@@ -81,7 +81,6 @@ async def build_plan_context(
             "react_turn": 0,
             "stop_reason": "",
             "condensed_messages": [],
-            "read_doc_stage": {},
             "final_summary": "",
             "done": False,
         },
@@ -128,7 +127,6 @@ async def select_next_subtask(
             "react_messages": [],
             "react_turn": 0,
             "stop_reason": "",
-            "read_doc_stage": {},
         },
     )
 
@@ -145,7 +143,6 @@ async def run_react_subgraph(
             "react_messages": updated_state.get("react_messages", []),
             "react_turn": updated_state.get("react_turn", 0),
             "stop_reason": updated_state.get("stop_reason", ""),
-            "read_doc_stage": updated_state.get("read_doc_stage", {}),
         },
     )
 

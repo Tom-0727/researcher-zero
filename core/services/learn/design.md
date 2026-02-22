@@ -26,7 +26,7 @@ state.py              # LearnState / PlanItem / SubtaskSummary
 prompts.py            # 纯文本模板
 context_loader.py     # workspace 读取与 plan 阶段 prompt 载荷构建
 plan.py               # plan 生成、plan 文件解析、状态流转 helper
-react.py              # ReAct 子图（think/act/stop）+ read 顺序校验
+react.py              # ReAct 子图（think/act/stop）
 summarize.py          # 子任务总结与最终总结
 graph.py              # 主图编排（Plan & Execute 主循环）
 design.md
@@ -46,7 +46,6 @@ design.md
 - 当前子任务：`current_index`、`current_subtask_id`、`current_subtask`
 - ReAct 过程：`react_messages`、`react_turn`、`stop_reason`
 - 子任务间压缩记忆：`condensed_messages`、`subtask_summaries`
-- Read 顺序状态：`read_doc_stage`（`doc_id -> ingested/located/read`）
 - 终态：`final_summary`、`done`
 
 补充：
@@ -139,28 +138,7 @@ design.md
   - 非 0 直接抛错
   - 非预期格式也抛错（不做兜底）
 
-### 6.4 read 能力执行层强约束
-针对 `run_skill_entry("read", entry_args)`，当前代码做了前置与后置双校验：
-
-前置（执行前）：
-- `_parse_read_entry_args`：
-  - 必须包含 `--workspace`
-  - 必须包含操作 `ingest|outline|find|read`
-  - `ingest` 必须有 `--source`
-  - `outline/find/read` 必须有 `--doc-id`
-  - `find` 必须有 `--query`
-  - `read` 必须有 `--chunk-ids` 且 id 格式合法
-- `_validate_read_sequence`：
-  - `outline/find/read` 前必须已有该 `doc_id` 的 ingest 记录
-  - `read` 前必须至少经过 `outline` 或 `find`（stage=`located` 或 `read`）
-
-后置（执行成功后）：
-- `_apply_read_stage_update` 更新 `read_doc_stage`
-  - ingest：从 read skill JSON 输出中解析 `data.doc_id`，标记 `ingested`
-  - outline/find：标记 `located`
-  - read：标记 `read`
-
-### 6.5 `react_should_stop`
+### 6.4 `react_should_stop`
 - 有 `stop_reason` 则结束子图。
 - 否则达到 `max_react_turns_per_subtask` 时结束，并写 `stop_reason="max_react_turns"`。
 - 否则回到 `react_think`。
@@ -176,7 +154,6 @@ design.md
   - 追加一条 `HumanMessage` 到 `condensed_messages`
   - 清空 `react_messages`
   - 重置 `react_turn`、`stop_reason`、`current_subtask*`
-  - 清空 `read_doc_stage`
 
 ### 7.2 `run_finalize_summary`
 - 组合 `task + final plan + subtask summaries` 生成 `final_summary`。
@@ -238,12 +215,8 @@ design.md
 2. 无模型 smoke（不使用 mock）  
 - `select_next_subtask`：可把 `todo -> doing`，无 `todo` 时转 `finalize_summary`。  
 - `transition_plan_item_status`：合法迁移通过，非法迁移报错。  
-- read 顺序校验：  
-  - `outline/read` 在 ingest 前报错；  
-  - `read` 在 outline/find 前报错；  
-  - 合法顺序通过。
 
 ## 12. 当前限制与后续可演进点
 - 未在本地执行真实 LLM 端到端（依赖外部模型配置和密钥）。
 - `run_skill_entry` 输出格式与 `skill_meta_toolkit` 当前实现耦合（假设首行为 `exit_code: ...`）。
-- `read` 的约束目前在 `react_act` 执行层强校验；若后续需要更强控制，可在 `skill_meta_toolkit` 增加策略层统一约束。
+- 如后续需要工具使用策略约束，建议在 `skill_meta_toolkit` 增加统一策略层，而不是在单个 learn 执行节点内叠加特例逻辑。

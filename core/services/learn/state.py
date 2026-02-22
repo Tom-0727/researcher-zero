@@ -39,6 +39,5 @@ class LearnState(MessagesState):
     subtask_summaries: list[SubtaskSummary] = Field(default_factory=list)
     react_messages: list[MessageLikeRepresentation] = Field(default_factory=list)
     condensed_messages: list[MessageLikeRepresentation] = Field(default_factory=list)
-    read_doc_stage: dict[str, str] = Field(default_factory=dict)
     final_summary: str = ""
     done: bool = False

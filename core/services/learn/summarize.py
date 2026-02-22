@@ -117,7 +117,6 @@ async def run_subtask_summary(state: LearnState, config: RunnableConfig) -> dict
         "stop_reason": "",
         "current_subtask": "",
         "current_subtask_id": 0,
-        "read_doc_stage": {},
     }
 
 
