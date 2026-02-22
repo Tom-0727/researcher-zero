@@ -24,33 +24,19 @@ from core.services.learn.summarize import (
 from core.tools.skill_meta_toolkit import build_skill_capability
 
 
-async def validate_input(
+async def plan_node(
     state: LearnState,
     config: RunnableConfig,
-) -> Command[Literal["build_plan_context"]]:
-    """Validate required input fields and normalize workspace path."""
+) -> Command[Literal["select_next_subtask"]]:
+    """Build plan context and execute plan generation in one node."""
     task = state.get("task", "").strip()
     if not task:
         raise ValueError("task cannot be empty.")
     workspace = state.get("workspace", "").strip()
     if not workspace:
         raise ValueError("workspace cannot be empty.")
-
     resolved_workspace = str(resolve_workspace(workspace))
-    return Command[Literal['build_plan_context']](
-        goto="build_plan_context",
-        update={
-            "workspace": resolved_workspace,
-            "task": task,
-        },
-    )
 
-
-async def build_plan_context(
-    state: LearnState,
-    config: RunnableConfig,
-) -> Command[Literal["plan_task"]]:
-    """Load context + skill metadata and build one-time plan system prompt."""
     configurable = LearnConfig.from_runnable_config(config)
     capability = build_skill_capability(
         roots=configurable.skill_roots,
@@ -58,42 +44,39 @@ async def build_plan_context(
         command_timeout=configurable.skill_command_timeout,
     )
     payload = build_plan_context_payload(
-        workspace=state["workspace"],
-        task=state["task"],
+        workspace=resolved_workspace,
+        task=task,
         plan_file=state.get("plan_file", ""),
         skill_runtime_prompt=capability.prompt,
     )
+    planning_state = {
+        **state,
+        "workspace": payload["workspace"],
+        "plan_file": payload["plan_file"],
+        "system_prompt": payload["system_prompt"],
+        "workspace_notes_summary": payload["workspace_notes_summary"],
+        "skill_runtime_prompt": capability.prompt,
+        "available_skills": sorted(capability.toolkit.skills.keys()),
+        "plan_items": [],
+        "current_index": 0,
+        "current_subtask_id": 0,
+        "current_subtask": "",
+        "subtask_summaries": [],
+        "react_messages": [],
+        "react_turn": 0,
+        "stop_reason": "",
+        "condensed_messages": [],
+        "final_summary": "",
+        "done": False,
+    }
+    plan_update = await run_plan_task(state=planning_state, config=config)
     return Command(
-        goto="plan_task",
+        goto="select_next_subtask",
         update={
-            "workspace": payload["workspace"],
-            "plan_file": payload["plan_file"],
-            "system_prompt": payload["system_prompt"],
-            "workspace_notes_summary": payload["workspace_notes_summary"],
-            "skill_runtime_prompt": capability.prompt,
-            "available_skills": sorted(capability.toolkit.skills.keys()),
-            "plan_items": [],
-            "current_index": 0,
-            "current_subtask_id": 0,
-            "current_subtask": "",
-            "subtask_summaries": [],
-            "react_messages": [],
-            "react_turn": 0,
-            "stop_reason": "",
-            "condensed_messages": [],
-            "final_summary": "",
-            "done": False,
+            **planning_state,
+            **plan_update,
         },
     )
-
-
-async def plan_task(
-    state: LearnState,
-    config: RunnableConfig,
-) -> Command[Literal["select_next_subtask"]]:
-    """Run hardcoded plan workflow via pre-registered plan tools."""
-    update = await run_plan_task(state=state, config=config)
-    return Command(goto="select_next_subtask", update=update)
 
 
 async def select_next_subtask(
@@ -195,12 +178,10 @@ async def finalize_summary(
 
 
 learn_graph = StateGraph(LearnState)
-learn_graph.add_node("validate_input", validate_input)
-learn_graph.add_node("build_plan_context", build_plan_context)
-learn_graph.add_node("plan_task", plan_task)
+learn_graph.add_node("plan_node", plan_node)
 learn_graph.add_node("select_next_subtask", select_next_subtask)
 learn_graph.add_node("run_react_subgraph", run_react_subgraph)
 learn_graph.add_node("summarize_subtask", summarize_subtask)
 learn_graph.add_node("finalize_summary", finalize_summary)
-learn_graph.add_edge(START, "validate_input")
+learn_graph.add_edge(START, "plan_node")
 learn_graph = learn_graph.compile()
