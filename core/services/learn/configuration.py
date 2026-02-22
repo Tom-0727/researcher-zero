@@ -10,15 +10,15 @@ class LearnConfig(BaseModel):
     """Runtime configuration for learn graph."""
 
     plan_model: str = Field(
-        default="deepseek",
+        default="glm",
         description="Model used for plan generation.",
     )
     react_think_model: str = Field(
-        default="deepseek",
+        default="glm",
         description="Model used for ReAct think step.",
     )
     summary_model: str = Field(
-        default="deepseek",
+        default="glm",
         description="Model used for subtask/final summaries.",
     )
     max_plan_steps: int = Field(

@@ -1,42 +1,19 @@
 import asyncio
-from datetime import datetime
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from typing import Any
 
-from core.services import init_research_workspace, learn_graph
+from core.services import learn_graph
+from core.services.learn.graph import plan_node
 
 
 # 直接在此处修改测试配置，不再读取命令行参数。
-TASK = "调研包括 ReAct 模式在内的 Agent 运作设计，沉淀知识"
-WORKSPACE = "/Users/tom/Codes/researcher-zero/cache/agent"  # 为空时自动创建 workspace
-KEEP_WORKSPACE = False  # WORKSPACE 为空时，是否保留到 ./cache
-PLAN_MODEL = "deepseek"
-REACT_MODEL = "deepseek"
-SUMMARY_MODEL = "deepseek"
+TASK = "调研包括 ReAct 模式在内的 Agent 运作设计"
+WORKSPACE = "/Users/tom/Codes/researcher-zero/cache/agent"
+PLAN_MODEL = "glm"
+REACT_MODEL = "glm"
+SUMMARY_MODEL = "glm"
 MAX_PLAN_STEPS = 3
 MAX_REACT_TURNS = 5
-
-
-def prepare_workspace() -> tuple[Path, TemporaryDirectory | None]:
-    """准备测试 workspace。"""
-    if WORKSPACE.strip():
-        workspace = Path(WORKSPACE).expanduser().resolve()
-        workspace.mkdir(parents=True, exist_ok=True)
-        init_research_workspace(workspace)
-        return workspace, None
-
-    if KEEP_WORKSPACE:
-        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        workspace = (Path("cache") / f"learn-flow-{stamp}").resolve()
-        workspace.mkdir(parents=True, exist_ok=True)
-        init_research_workspace(workspace)
-        return workspace, None
-
-    tmp = TemporaryDirectory(prefix="learn-flow-")
-    workspace = Path(tmp.name).resolve()
-    init_research_workspace(workspace)
-    return workspace, tmp
 
 
 def build_runnable_config() -> dict[str, dict[str, Any]]:
@@ -57,37 +34,59 @@ def build_runnable_config() -> dict[str, dict[str, Any]]:
 
 async def run_flow_check() -> None:
     """执行 learn graph，并输出结果摘要。"""
-    workspace, tmp = prepare_workspace()
-    try:
-        print(f"[1/4] workspace: {workspace}")
-        print("[2/4] invoking learn_graph ...")
+    workspace = Path(WORKSPACE).expanduser().resolve()
 
-        initial_state = {
+    print(f"[1/4] workspace: {workspace}")
+    print("[2/4] invoking learn_graph ...")
+
+    initial_state = {
+        "workspace": str(workspace),
+        "task": TASK.strip(),
+        "messages": [],
+    }
+    result = await learn_graph.ainvoke(
+        initial_state,
+        config=build_runnable_config(),
+    )
+
+    print("[3/4] result snapshot ...")
+    print(f"- done: {result.get('done')}")
+    print(f"- plan_file: {result.get('plan_file')}")
+    print(f"- plan_count: {len(result.get('plan_items', []) or [])}")
+    print(f"- summary_count: {len(result.get('subtask_summaries', []) or [])}")
+    print("- final_summary (first 240 chars):")
+    print(str(result.get("final_summary", ""))[:240])
+    print("[4/4] flow check finished")
+
+
+async def run_plan_node_check() -> None:
+    """仅执行 learn graph 的 plan 节点，并输出计划结果摘要。"""
+    workspace = Path(WORKSPACE).expanduser().resolve()
+
+    print(f"[1/3] workspace: {workspace}")
+    print("[2/3] invoking plan_node ...")
+
+    command = await plan_node(
+        state={
             "workspace": str(workspace),
             "task": TASK.strip(),
             "messages": [],
-        }
-        result = await learn_graph.ainvoke(
-            initial_state,
-            config=build_runnable_config(),
-        )
+        },
+        config=build_runnable_config(),
+    )
+    update = getattr(command, "update", {}) or {}
+    plan_items = update.get("plan_items", []) or []
 
-        print("[3/4] result snapshot ...")
-        print(f"- done: {result.get('done')}")
-        print(f"- plan_file: {result.get('plan_file')}")
-        print(f"- plan_count: {len(result.get('plan_items', []) or [])}")
-        print(f"- summary_count: {len(result.get('subtask_summaries', []) or [])}")
-        print("- final_summary (first 240 chars):")
-        print(str(result.get("final_summary", ""))[:240])
-        print("[4/4] flow check finished")
-    finally:
-        if tmp is not None:
-            tmp.cleanup()
+    print("[3/3] plan node result snapshot ...")
+    print(f"- goto: {getattr(command, 'goto', '')}")
+    print(f"- plan_file: {update.get('plan_file')}")
+    print(f"- plan_count: {len(plan_items)}")
+    breakpoint()
 
 
 def main() -> None:
     """脚本入口。"""
-    asyncio.run(run_flow_check())
+    asyncio.run(run_plan_node_check())
 
 
 if __name__ == "__main__":

@@ -7,12 +7,18 @@ from dotenv import load_dotenv
 from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
+from langgraph.types import Command
 
 from core.services.learn.configuration import LearnConfig
+from core.services.learn.context_loader import (
+    build_plan_context_payload,
+    resolve_workspace,
+)
 from core.services.learn.prompts import get_plan_instruction
 from core.services.learn.state import LearnState, PlanItem
 from core.skills.plan import build_plan_tools
 from core.skills.plan.scripts.plan_tool import mutate_plan_file
+from core.tools.skill_meta_toolkit import build_skill_capability
 
 load_dotenv()
 configurable_model = init_chat_model(
@@ -29,8 +35,13 @@ STATUS_TRANSITIONS: dict[str, set[str]] = {
 }
 
 
-def parse_plan_items(plan_text: str) -> list[PlanItem]:
-    """Parse canonical <PLAN> block into strict plan items."""
+def parse_plan_items(source: str, *, from_file: bool = False) -> list[PlanItem]:
+    """Parse canonical <PLAN> block into strict plan items. When from_file=True, source is a path."""
+    plan_text = (
+        Path(source).expanduser().resolve().read_text(encoding="utf-8")
+        if from_file
+        else source
+    )
     match = PLAN_RE.search(plan_text)
     if not match:
         raise ValueError("Missing <PLAN>...</PLAN> block in plan tool output.")
@@ -61,14 +72,6 @@ def parse_plan_items(plan_text: str) -> list[PlanItem]:
     return items
 
 
-def load_plan_items_from_file(plan_file: str) -> list[PlanItem]:
-    """Load and parse canonical plan snapshot from plan file."""
-    path = Path(plan_file).expanduser().resolve()
-    if not path.exists() or not path.is_file():
-        raise FileNotFoundError(f"Plan file not found: {path}")
-    return parse_plan_items(path.read_text(encoding="utf-8"))
-
-
 def _find_item(plan_items: list[PlanItem], item_id: int) -> PlanItem:
     """Get one plan item by id with strict validation."""
     if item_id <= 0:
@@ -87,7 +90,7 @@ def transition_plan_item_status(
     to_status: Literal["doing", "done", "aborted"],
 ) -> list[PlanItem]:
     """Transition one plan item status with strict runtime-owned rules."""
-    current_items = load_plan_items_from_file(plan_file)
+    current_items = parse_plan_items(plan_file, from_file=True)
     current_item = _find_item(current_items, item_id)
     if to_status not in STATUS_TRANSITIONS[current_item.status]:
         raise ValueError(
@@ -129,7 +132,7 @@ def pick_next_todo_item(plan_items: list[PlanItem]) -> PlanItem | None:
 
 def start_next_subtask(plan_file: str) -> tuple[PlanItem | None, list[PlanItem]]:
     """Select first todo and transition it to doing."""
-    current_items = load_plan_items_from_file(plan_file)
+    current_items = parse_plan_items(plan_file, from_file=True)
     next_item = pick_next_todo_item(current_items)
     if not next_item:
         return None, current_items
@@ -149,67 +152,96 @@ def _invoke_tool(tool_obj: Any, tool_args: dict[str, Any]) -> str:
     return payload
 
 
-async def run_plan_task(state: LearnState, config: RunnableConfig) -> dict[str, Any]:
-    """Generate and persist initial plan through hardcoded plan tools workflow."""
-    configurable = LearnConfig.from_runnable_config(config)
-    plan_tools = build_plan_tools(plan_file=state["plan_file"])
-    tool_map = {tool_obj.name: tool_obj for tool_obj in plan_tools}
+async def plan_node(
+    state: LearnState,
+    config: RunnableConfig,
+) -> Command[Literal["select_next_subtask"]]:
+    """Build plan context, run plan generation, return full state update and next node."""
+    task = state.get("task", "").strip()
+    workspace = state.get("workspace", "").strip()
+    resolved_workspace = str(resolve_workspace(workspace))
 
-    model_config = {
-        "model": configurable.plan_model,
-        "model_provider": "openai",
-        "max_tokens": 8000,
-        "temperature": 0.1,
-        "timeout": configurable.skill_command_timeout,
+    configurable = LearnConfig.from_runnable_config(config)
+    capability = build_skill_capability(
+        roots=configurable.skill_roots,
+        allow_run_entry=True,
+        command_timeout=configurable.skill_command_timeout,
+    )
+    payload = build_plan_context_payload(
+        workspace=resolved_workspace,
+        task=task,
+        plan_file=state.get("plan_file", ""),
+        skill_runtime_prompt=capability.prompt,
+    )
+    planning_state = {
+        **state,
+        "workspace": payload["workspace"],
+        "plan_file": payload["plan_file"],
+        "system_prompt": payload["system_prompt"],
+        "workspace_notes_summary": payload["workspace_notes_summary"],
+        "skill_runtime_prompt": capability.prompt,
+        "available_skills": sorted(capability.toolkit.skills.keys()),
+        "plan_items": [],
+        "current_index": 0,
+        "current_subtask_id": 0,
+        "current_subtask": "",
+        "subtask_summaries": [],
+        "react_messages": [],
+        "react_turn": 0,
+        "stop_reason": "",
+        "condensed_messages": [],
+        "final_summary": "",
+        "done": False,
     }
+
+    plan_tools = build_plan_tools(plan_file=planning_state["plan_file"])
+    tool_map = {tool_obj.name: tool_obj for tool_obj in plan_tools}
     plan_model = (
         configurable_model
         .bind_tools(plan_tools, tool_choice="required")
-        .with_config(model_config)
+        .with_config({
+            "model": configurable.plan_model,
+            "model_provider": "openai",
+            "max_tokens": 400,
+            "temperature": 0.1,
+            "timeout": configurable.skill_command_timeout,
+        })
     )
-
     messages = [
-        SystemMessage(content=state["system_prompt"]),
+        SystemMessage(content=planning_state["system_prompt"]),
         HumanMessage(
             content=get_plan_instruction(
-                task=state["task"],
+                task=planning_state["task"],
                 max_plan_steps=configurable.max_plan_steps,
             )
         ),
     ]
     response = await plan_model.ainvoke(messages)
     if not response.tool_calls:
-        raise ValueError("plan_task expects at least one plan tool call.")
+        raise ValueError("No plan tool call in plan node output.")
 
     tool_messages: list[ToolMessage] = []
-    latest_plan_text = ""
-    # Plan stage is a fixed workflow: execute model-chosen plan tools directly.
     for tool_call in response.tool_calls:
         tool_name = tool_call.get("name", "")
         if tool_name not in tool_map:
             raise ValueError(f"Unsupported plan tool call: {tool_name!r}")
         tool_args = tool_call.get("args", {}) or {}
         plan_text = _invoke_tool(tool_map[tool_name], tool_args)
-        latest_plan_text = plan_text
         tool_call_id = tool_call.get("id")
         if not tool_call_id:
             raise ValueError("Missing tool_call id in model output.")
         tool_messages.append(
-            ToolMessage(
-                content=plan_text,
-                tool_call_id=tool_call_id,
-            )
+            ToolMessage(content=plan_text, tool_call_id=tool_call_id)
         )
 
-    if not latest_plan_text:
-        raise ValueError("plan_task completed without plan text output.")
-    parsed_items = load_plan_items_from_file(state["plan_file"])
-    if len(parsed_items) > configurable.max_plan_steps:
-        raise ValueError(
-            f"Plan item count exceeds max_plan_steps={configurable.max_plan_steps}."
-        )
-
-    return {
-        "messages": [response, *tool_messages],
-        "plan_items": parsed_items,
-    }
+    parsed_items = parse_plan_items(planning_state["plan_file"], from_file=True)[
+        : configurable.max_plan_steps
+    ]
+    return Command(
+        goto="select_next_subtask",
+        update={
+            **planning_state,
+            "messages": [response, *tool_messages],
+            "plan_items": parsed_items,
+        },
+    )

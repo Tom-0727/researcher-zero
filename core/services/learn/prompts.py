@@ -17,12 +17,6 @@ def get_plan_system_prompt(
 Task goal:
 {task}
 
-Execution constraints:
-1. Decompose task into independent, small, executable learning subtasks.
-2. Do not output action scripts like "search first then summarize".
-3. End planning by calling plan tools to write the canonical <PLAN> file.
-4. Keep subtasks concise, avoid duplicates, and prioritize workspace knowledge gaps.
-
 {skill_runtime_prompt}
 
 <Basic_Info>
@@ -44,6 +38,12 @@ Execution constraints:
 <Workspace_Notes_Summary>
 {workspace_notes}
 </Workspace_Notes_Summary>
+
+Execution constraints:
+1. Decompose task into independent, small, executable learning subtasks.
+2. Do not output action scripts like "search first then summarize".
+3. End planning by calling plan tools to write the canonical <PLAN> file.
+4. Keep subtasks concise, avoid duplicates, and prioritize workspace knowledge gaps.
 """
 
 

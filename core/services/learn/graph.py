@@ -4,14 +4,9 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command
 
-from core.services.learn.configuration import LearnConfig
-from core.services.learn.context_loader import (
-    build_plan_context_payload,
-    resolve_workspace,
-)
 from core.services.learn.plan import (
-    load_plan_items_from_file,
-    run_plan_task,
+    parse_plan_items,
+    plan_node,
     start_next_subtask,
     transition_plan_item_status,
 )
@@ -21,62 +16,6 @@ from core.services.learn.summarize import (
     run_finalize_summary,
     run_subtask_summary,
 )
-from core.tools.skill_meta_toolkit import build_skill_capability
-
-
-async def plan_node(
-    state: LearnState,
-    config: RunnableConfig,
-) -> Command[Literal["select_next_subtask"]]:
-    """Build plan context and execute plan generation in one node."""
-    task = state.get("task", "").strip()
-    if not task:
-        raise ValueError("task cannot be empty.")
-    workspace = state.get("workspace", "").strip()
-    if not workspace:
-        raise ValueError("workspace cannot be empty.")
-    resolved_workspace = str(resolve_workspace(workspace))
-
-    configurable = LearnConfig.from_runnable_config(config)
-    capability = build_skill_capability(
-        roots=configurable.skill_roots,
-        allow_run_entry=True,
-        command_timeout=configurable.skill_command_timeout,
-    )
-    payload = build_plan_context_payload(
-        workspace=resolved_workspace,
-        task=task,
-        plan_file=state.get("plan_file", ""),
-        skill_runtime_prompt=capability.prompt,
-    )
-    planning_state = {
-        **state,
-        "workspace": payload["workspace"],
-        "plan_file": payload["plan_file"],
-        "system_prompt": payload["system_prompt"],
-        "workspace_notes_summary": payload["workspace_notes_summary"],
-        "skill_runtime_prompt": capability.prompt,
-        "available_skills": sorted(capability.toolkit.skills.keys()),
-        "plan_items": [],
-        "current_index": 0,
-        "current_subtask_id": 0,
-        "current_subtask": "",
-        "subtask_summaries": [],
-        "react_messages": [],
-        "react_turn": 0,
-        "stop_reason": "",
-        "condensed_messages": [],
-        "final_summary": "",
-        "done": False,
-    }
-    plan_update = await run_plan_task(state=planning_state, config=config)
-    return Command(
-        goto="select_next_subtask",
-        update={
-            **planning_state,
-            **plan_update,
-        },
-    )
 
 
 async def select_next_subtask(
@@ -84,7 +23,7 @@ async def select_next_subtask(
     config: RunnableConfig,
 ) -> Command[Literal["run_react_subgraph", "finalize_summary"]]:
     """Refresh plan snapshot and pick next todo item."""
-    plan_items = load_plan_items_from_file(state["plan_file"])
+    plan_items = parse_plan_items(state["plan_file"], from_file=True)
     if any(item.status == "doing" for item in plan_items):
         raise ValueError("Plan contains 'doing' item before selecting next subtask.")
 
@@ -162,7 +101,7 @@ async def finalize_summary(
     config: RunnableConfig,
 ) -> Command[Literal["__end__"]]:
     """Generate final summary and finish graph."""
-    plan_items = load_plan_items_from_file(state["plan_file"])
+    plan_items = parse_plan_items(state["plan_file"], from_file=True)
     if any(item.status in {"todo", "doing"} for item in plan_items):
         raise ValueError("Cannot finalize while plan still has todo/doing items.")
 

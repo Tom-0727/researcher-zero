@@ -92,7 +92,7 @@ design.md
    - `SystemMessage(system_prompt)`
    - `HumanMessage(get_plan_instruction(...))`
 3. 必须返回 tool calls；逐个执行 `_invoke_tool`。
-4. 最终快照从 `plan_file` 重新加载（`load_plan_items_from_file`），确保 `plan_file` 为单一事实源。
+4. 最终快照从 `plan_file` 重新加载（`parse_plan_items(plan_file, from_file=True)`），确保 `plan_file` 为单一事实源。
 5. 校验 `max_plan_steps`。
 
 ### 5.3 计划解析与格式约束

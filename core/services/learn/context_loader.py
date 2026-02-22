@@ -84,6 +84,8 @@ def build_plan_context_payload(
         workspace_notes=notes_summary,
         skill_runtime_prompt=skill_runtime_prompt,
     )
+
+    breakpoint()
     return {
         "workspace": str(workspace_path),
         "plan_file": str(resolved_plan_file),
