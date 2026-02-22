@@ -86,7 +86,7 @@ async def run_plan_node_check() -> None:
 
 def main() -> None:
     """脚本入口。"""
-    asyncio.run(run_plan_node_check())
+    asyncio.run(run_flow_check())
 
 
 if __name__ == "__main__":

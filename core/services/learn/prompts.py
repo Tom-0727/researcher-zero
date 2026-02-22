@@ -67,8 +67,6 @@ def render_plan_view(plan_items: list[PlanItem]) -> str:
 def get_react_skills_instruction(*, skill_runtime_prompt: str) -> str:
     """Wrap skills runtime guidance as a dedicated react-stage instruction message."""
     content = skill_runtime_prompt.strip()
-    if not content:
-        raise ValueError("skill_runtime_prompt is empty before react stage.")
     return f"""Skills usage instructions:
 {content}"""
 
