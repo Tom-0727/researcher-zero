@@ -11,7 +11,7 @@ from langgraph.types import Command
 
 from core.services.learn.configuration import LearnConfig
 from core.services.learn.context_loader import (
-    build_plan_context_payload,
+    build_learn_context_payload,
     resolve_workspace,
 )
 from core.services.learn.prompts import get_plan_instruction
@@ -167,18 +167,16 @@ async def plan_node(
         allow_run_entry=True,
         command_timeout=configurable.skill_command_timeout,
     )
-    payload = build_plan_context_payload(
+    payload = build_learn_context_payload(
         workspace=resolved_workspace,
         task=task,
         plan_file=state.get("plan_file", ""),
-        skill_runtime_prompt=capability.prompt,
     )
     planning_state = {
         **state,
         "workspace": payload["workspace"],
         "plan_file": payload["plan_file"],
         "system_prompt": payload["system_prompt"],
-        "workspace_notes_summary": payload["workspace_notes_summary"],
         "skill_runtime_prompt": capability.prompt,
         "available_skills": sorted(capability.toolkit.skills.keys()),
         "plan_items": [],
@@ -194,7 +192,11 @@ async def plan_node(
         "done": False,
     }
 
-    plan_tools = build_plan_tools(plan_file=planning_state["plan_file"])
+    plan_tools = [
+        tool_obj
+        for tool_obj in build_plan_tools(plan_file=planning_state["plan_file"])
+        if tool_obj.name == "plan_upsert_todos"
+    ]
     tool_map = {tool_obj.name: tool_obj for tool_obj in plan_tools}
     plan_model = (
         configurable_model
@@ -223,8 +225,10 @@ async def plan_node(
     tool_messages: list[ToolMessage] = []
     for tool_call in response.tool_calls:
         tool_name = tool_call.get("name", "")
-        if tool_name not in tool_map:
-            raise ValueError(f"Unsupported plan tool call: {tool_name!r}")
+        if tool_name != "plan_upsert_todos":
+            raise ValueError(
+                f"Plan stage only accepts `plan_upsert_todos`, got {tool_name!r}."
+            )
         tool_args = tool_call.get("args", {}) or {}
         plan_text = _invoke_tool(tool_map[tool_name], tool_args)
         tool_call_id = tool_call.get("id")
@@ -237,6 +241,7 @@ async def plan_node(
     parsed_items = parse_plan_items(planning_state["plan_file"], from_file=True)[
         : configurable.max_plan_steps
     ]
+
     return Command(
         goto="select_next_subtask",
         update={

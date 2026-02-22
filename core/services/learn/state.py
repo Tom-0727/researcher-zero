@@ -28,7 +28,6 @@ class LearnState(MessagesState):
     plan_file: str = ""
     system_prompt: str = ""
     skill_runtime_prompt: str = ""
-    workspace_notes_summary: str = ""
     available_skills: list[str] = Field(default_factory=list)
     plan_items: list[PlanItem] = Field(default_factory=list)
     current_index: int = 0

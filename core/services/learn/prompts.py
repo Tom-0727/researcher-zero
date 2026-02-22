@@ -1,23 +1,23 @@
 from core.services.learn.state import PlanItem, SubtaskSummary
 
 
-def get_plan_system_prompt(
+def get_learn_system_prompt(
     *,
     task: str,
     basic_info: str,
     taxonomy: str,
+    human_preference: str,
     network: str,
     main_challenge: str,
-    workspace_notes: str,
-    skill_runtime_prompt: str,
 ) -> str:
-    """Build plan-stage system prompt with fixed context sections."""
+    """Build shared learn-stage system prompt with fixed workspace context sections."""
     return f"""You are Learn Agent for continuous workspace knowledge accumulation.
+
+Primary objective:
+Study the task iteratively, gather evidence, and accumulate reusable knowledge into the workspace.
 
 Task goal:
 {task}
-
-{skill_runtime_prompt}
 
 <Basic_Info>
 {basic_info}
@@ -27,6 +27,10 @@ Task goal:
 {taxonomy}
 </Taxonomy>
 
+<Alignment_Human_Preference>
+{human_preference}
+</Alignment_Human_Preference>
+
 <Cognition_Network>
 {network}
 </Cognition_Network>
@@ -34,16 +38,6 @@ Task goal:
 <Main_Challenge>
 {main_challenge}
 </Main_Challenge>
-
-<Workspace_Notes_Summary>
-{workspace_notes}
-</Workspace_Notes_Summary>
-
-Execution constraints:
-1. Decompose task into independent, small, executable learning subtasks.
-2. Do not output action scripts like "search first then summarize".
-3. End planning by calling plan tools to write the canonical <PLAN> file.
-4. Keep subtasks concise, avoid duplicates, and prioritize workspace knowledge gaps.
 """
 
 
@@ -56,10 +50,9 @@ Task:
 
 Rules:
 1. First think of subtask titles only.
-2. Then call `plan_upsert_todos` once with JSON array:
+2. Then call `plan_upsert_todos` exactly once with JSON array:
    [{{"status":"todo","title":"..."}}]
 3. Never include `id` in upsert payload.
-4. If you need to remove duplicated steps, call `plan_remove_ids`.
 """
 
 
@@ -69,6 +62,15 @@ def render_plan_view(plan_items: list[PlanItem]) -> str:
         return "<PLAN>\n</PLAN>"
     lines = [f"- [{item.status}][{item.id}] {item.title}" for item in plan_items]
     return "<PLAN>\n" + "\n".join(lines) + "\n</PLAN>"
+
+
+def get_react_skills_instruction(*, skill_runtime_prompt: str) -> str:
+    """Wrap skills runtime guidance as a dedicated react-stage instruction message."""
+    content = skill_runtime_prompt.strip()
+    if not content:
+        raise ValueError("skill_runtime_prompt is empty before react stage.")
+    return f"""Skills usage instructions:
+{content}"""
 
 
 def get_react_think_prompt(
@@ -88,9 +90,7 @@ Rules:
 1. Focus only on this subtask and ignore unrelated goals.
 2. Choose exactly one next action: call one tool, or finish this subtask.
 3. If evidence is enough, finish immediately instead of over-calling tools.
-4. For long documents, only use `run_skill_entry("read", entry_args)` with strict order:
-   ingest -> outline/find -> read(--chunk-ids).
-5. Never put full document content into context; only keep selected chunk contents.
+4. Follow the skills usage instructions from the previous message when calling tools.
 """
 
 

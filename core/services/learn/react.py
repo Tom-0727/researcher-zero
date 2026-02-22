@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from core.services.learn.configuration import LearnConfig
 from core.services.learn.prompts import (
+    get_react_skills_instruction,
     get_react_think_prompt,
     render_plan_view,
 )
@@ -78,6 +79,11 @@ def _build_react_input_messages(
             content=(
                 "Previous subtask summaries:\n"
                 f"{_render_condensed_history(state.get('condensed_messages', []))}"
+            )
+        ),
+        HumanMessage(
+            content=get_react_skills_instruction(
+                skill_runtime_prompt=str(state.get("skill_runtime_prompt", ""))
             )
         ),
         HumanMessage(

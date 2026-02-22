@@ -1,10 +1,11 @@
 from pathlib import Path
 
-from core.services.learn.prompts import get_plan_system_prompt
+from core.services.learn.prompts import get_learn_system_prompt
 
 REQUIRED_CONTEXT_PATHS = {
     "basic_info": "Basic_Context/basic_info.md",
     "taxonomy": "Basic_Context/taxonomy.md",
+    "human_preference": "Alignment/human_preference.md",
     "network": "Cognition/network.md",
     "main_challenge": "Cognition/main_challenge.md",
 }
@@ -38,57 +39,26 @@ def load_required_context(workspace: Path) -> dict[str, str]:
     return loaded
 
 
-def summarize_workspace_notes(workspace: Path, limit_files: int = 20) -> str:
-    """Summarize existing markdown notes except required context files."""
-    excluded = {
-        (workspace / relative).resolve()
-        for relative in REQUIRED_CONTEXT_PATHS.values()
-    }
-    summaries: list[str] = []
-    for path in sorted(workspace.rglob("*.md")):
-        resolved = path.resolve()
-        if resolved in excluded:
-            continue
-        if ".read_cache" in resolved.parts:
-            continue
-        rel = resolved.relative_to(workspace).as_posix()
-        text = resolved.read_text(encoding="utf-8").strip()
-        if not text:
-            continue
-        summaries.append(f"[{rel}]\n{text[:1200]}")
-        if len(summaries) >= limit_files:
-            break
-    if not summaries:
-        return "(none)"
-    return "\n\n".join(summaries)
-
-
-def build_plan_context_payload(
+def build_learn_context_payload(
     *,
     workspace: str,
     task: str,
-    skill_runtime_prompt: str,
     plan_file: str | None = None,
-) -> dict[str, str | list[str]]:
-    """Build plan-stage prompt payload from workspace and runtime metadata."""
+) -> dict[str, str]:
+    """Build shared learn-stage prompt payload from workspace context."""
     workspace_path = resolve_workspace(workspace)
     resolved_plan_file = resolve_plan_file(workspace_path, plan_file=plan_file)
     context = load_required_context(workspace_path)
-    notes_summary = summarize_workspace_notes(workspace_path)
-    system_prompt = get_plan_system_prompt(
+    system_prompt = get_learn_system_prompt(
         task=task,
         basic_info=context["basic_info"],
         taxonomy=context["taxonomy"],
+        human_preference=context["human_preference"],
         network=context["network"],
         main_challenge=context["main_challenge"],
-        workspace_notes=notes_summary,
-        skill_runtime_prompt=skill_runtime_prompt,
     )
-
-    breakpoint()
     return {
         "workspace": str(workspace_path),
         "plan_file": str(resolved_plan_file),
         "system_prompt": system_prompt,
-        "workspace_notes_summary": notes_summary,
     }
