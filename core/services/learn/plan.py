@@ -36,39 +36,15 @@ STATUS_TRANSITIONS: dict[str, set[str]] = {
 
 
 def parse_plan_items(source: str, *, from_file: bool = False) -> list[PlanItem]:
-    """Parse canonical <PLAN> block into strict plan items. When from_file=True, source is a path."""
-    plan_text = (
-        Path(source).expanduser().resolve().read_text(encoding="utf-8")
-        if from_file
-        else source
-    )
-    match = PLAN_RE.search(plan_text)
-    if not match:
-        raise ValueError("Missing <PLAN>...</PLAN> block in plan tool output.")
-    body = match.group(1).strip()
-    if not body:
-        return []
-
+    """Parse <PLAN> block into plan items; ids by order. from_file=True: source is path."""
+    text = Path(source).expanduser().resolve().read_text(encoding="utf-8") if from_file else source
+    match = PLAN_RE.search(text)
+    body = match.group(1).strip() if match else ""
     items: list[PlanItem] = []
-    expected_id = 1
     for raw in body.splitlines():
-        line = raw.strip()
-        if not line:
-            continue
-        line_match = PLAN_LINE_RE.fullmatch(line)
-        if not line_match:
-            raise ValueError(f"Invalid plan line: {raw!r}")
-        status, id_text, title = line_match.groups()
-        item_id = int(id_text)
-        if item_id != expected_id:
-            raise ValueError(
-                f"Invalid plan id sequence: expected {expected_id}, got {item_id}."
-            )
-        normalized_title = title.strip()
-        if not normalized_title:
-            raise ValueError("Plan item title cannot be empty.")
-        items.append(PlanItem(id=item_id, title=normalized_title, status=status))
-        expected_id += 1
+        m = PLAN_LINE_RE.fullmatch(raw.strip())
+        if m and m.group(3).strip():
+            items.append(PlanItem(id=len(items) + 1, title=m.group(3).strip(), status=m.group(1)))
     return items
 
 

@@ -23,9 +23,6 @@ async def select_next_subtask(
     config: RunnableConfig,
 ) -> Command[Literal["run_react_subgraph", "finalize_summary"]]:
     """Refresh plan snapshot and pick next todo item."""
-    plan_items = parse_plan_items(state["plan_file"], from_file=True)
-    if any(item.status == "doing" for item in plan_items):
-        raise ValueError("Plan contains 'doing' item before selecting next subtask.")
 
     picked_item, updated_items = start_next_subtask(state["plan_file"])
     if not picked_item:
