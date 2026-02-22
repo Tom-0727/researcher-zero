@@ -7,6 +7,15 @@ from langchain.tools import tool
 
 load_dotenv()
 
+def _extract_arxiv_link(paper: Dict[str, Any]) -> str | None:
+    """从 Semantic Scholar 返回的 externalIds 中提取 arXiv 链接。"""
+    external_ids = paper.get("externalIds") or {}
+    arxiv_id = external_ids.get("ArXiv")
+    if not arxiv_id:
+        return None
+    arxiv_id = str(arxiv_id).removeprefix("arXiv:")
+    return f"https://arxiv.org/abs/{arxiv_id}"
+
 @tool
 def search_semantic_scholar(
     query: str, 
@@ -54,7 +63,7 @@ def search_semantic_scholar(
         "abstract", 
         "year", 
         "citationCount", 
-        "url"
+        "externalIds"
     ])
     
     params = {
@@ -91,7 +100,8 @@ def search_semantic_scholar(
                 "year": paper.get("year") or None,
                 "citations": paper.get("citationCount") or 0,
                 "abstract": paper.get("abstract") or "No abstract available.",
-                "link": paper.get("url") or None
+                # 直接暴露 arXiv 原文地址；没有则返回 None，不回退到 Semantic Scholar 页面
+                "link": _extract_arxiv_link(paper)
             })
             
         return results

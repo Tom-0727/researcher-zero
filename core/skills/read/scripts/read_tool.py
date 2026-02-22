@@ -15,14 +15,14 @@ from urllib.request import Request, urlopen
 import trafilatura
 from pypdf import PdfReader
 
-CACHE_DIR_NAME = ".read_cache"
+CACHE_DIR_NAME = ".read"
 TOKEN_RE = re.compile(r"[a-zA-Z0-9_]+")
 
 
 def build_parser() -> argparse.ArgumentParser:
     """Build CLI parser for chunk-based reading workflow."""
     parser = argparse.ArgumentParser(description="Read skill entry")
-    parser.add_argument("--workspace", required=True, help="Absolute workspace path")
+    parser.add_argument("--workspace", help=argparse.SUPPRESS)
     subparsers = parser.add_subparsers(dest="op", required=True)
 
     ingest = subparsers.add_parser("ingest", help="Ingest one source into cache")
@@ -67,8 +67,19 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _resolve_workspace(raw_workspace: str) -> Path:
-    """Resolve and validate workspace directory."""
+def _default_workspace() -> Path:
+    """Default workspace for internal cache under repo root."""
+    repo_root = Path(__file__).resolve().parents[4]
+    workspace = repo_root / "cache"
+    workspace.mkdir(parents=True, exist_ok=True)
+    return workspace
+
+
+def _resolve_workspace(raw_workspace: str | None) -> Path:
+    """Resolve user workspace or use internal default cache workspace."""
+    if not raw_workspace:
+        return _default_workspace()
+
     workspace = Path(raw_workspace).expanduser().resolve()
     if not workspace.exists() or not workspace.is_dir():
         raise ValueError(f"Workspace is not a directory: {workspace}")

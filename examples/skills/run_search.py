@@ -16,25 +16,25 @@ def main() -> None:
     print(
         toolkit.run_skill_entry(
             "search",
-            '--provider semantic_scholar --query "\"Large Language Models\" hallucination mitigation" --limit 3',
+            '--provider semantic_scholar --query "Large Language Models hallucination mitigation" --limit 3',
         )
     )
 
-    print("\n== 4) arXiv 搜索 ==")
-    print(
-        toolkit.run_skill_entry(
-            "search",
-            '--provider arxiv --query "\"Attention Is All You Need\"" --limit 3',
-        )
-    )
+    # print("\n== 4) arXiv 搜索 ==")
+    # print(
+    #     toolkit.run_skill_entry(
+    #         "search",
+    #         '--provider arxiv --query "Attention Is All You Need" --limit 3',
+    #     )
+    # )
 
-    print("\n== 5) Tavily 通用搜索 ==")
-    print(
-        toolkit.run_skill_entry(
-            "search",
-            '--provider general --query "langgraph tutorial" --limit 3 --kwargs-json \'{"topic": "general"}\'',
-        )
-    )
+    # print("\n== 5) Tavily 通用搜索 ==")
+    # print(
+    #     toolkit.run_skill_entry(
+    #         "search",
+    #         '--provider general --query "langgraph tutorial" --limit 3 --kwargs-json \'{"topic": "general"}\'',
+    #     )
+    # )
 
 
 if __name__ == "__main__":

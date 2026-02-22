@@ -108,11 +108,13 @@ def _build_skill_tools(config: RunnableConfig) -> tuple[LearnConfig, list[Any], 
         command_timeout=configurable.skill_command_timeout,
         only_tools=["load_skill", "run_skill_entry"],
     )
-    capability.prompt = """## Skills usage
+    capability.prompt = """## Skills usage instructions
 
 When you need a skill:
-1. Call **load_skill(skill_name)** first; the response describes what the skill does and how to use it.
-2. Then call **run_skill_entry(skill_name, entry_args)** with the appropriate arguments.
+1. Call **load_skill(skill_name)** first, the response describes what the skill does and how to use it.
+2. Call **run_skill_entry(skill_name, entry_args)**. **entry_args** is a single string: the CLI argument list you would pass to that skill's entry (same as on the command line). Use double quotes for values that contain spaces; the string is parsed with shell rules (e.g. `--provider semantic_scholar --query "your query"`). Copy the format from the examples in load_skill's response.
+
+
 """
     tool_map = {tool_obj.name: tool_obj for tool_obj in capability.tools}
     return configurable, capability.tools, tool_map
