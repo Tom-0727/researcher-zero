@@ -26,7 +26,7 @@ class LearnConfig(BaseModel):
         description="Maximum number of plan items kept after parsing.",
     )
     max_react_turns_per_subtask: int = Field(
-        default=6,
+        default=20,
         description="Maximum think/act loops allowed for one subtask.",
     )
     skill_roots: list[str] = Field(

@@ -19,7 +19,7 @@ PLAN_MODEL = "glm"
 REACT_MODEL = "glm"
 SUMMARY_MODEL = "glm"
 MAX_PLAN_STEPS = 3
-MAX_REACT_TURNS = 5
+MAX_REACT_TURNS = 20
 
 
 def build_runnable_config() -> dict[str, dict[str, Any]]:
@@ -132,6 +132,7 @@ async def run_react_subgraph_check() -> None:
     print(f"- react_message_count: {len(react_messages)}")
     if react_messages:
         print(f"- last_message_type: {type(react_messages[-1]).__name__}")
+    breakpoint()
 
 
 def main() -> None:

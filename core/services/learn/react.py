@@ -23,6 +23,7 @@ configurable_model = init_chat_model(
     configurable_fields=("model", "max_tokens", "temperature", "model_provider"),
 )
 EXIT_CODE_RE = re.compile(r"^exit_code:\s*(-?\d+)\s*$")
+REACT_THINK_MAX_ATTEMPTS = 3
 
 
 class FinishSubtask(BaseModel):
@@ -171,6 +172,26 @@ def _pick_single_tool_call(response: Any) -> dict[str, Any]:
     return tool_calls[0]
 
 
+async def _invoke_react_think_with_retry(
+    think_model: Any,
+    messages: list[Any],
+    *,
+    max_attempts: int = REACT_THINK_MAX_ATTEMPTS,
+) -> Any:
+    """Call think model with retry and validate tool-call shape before returning."""
+    last_error: Exception | None = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            response = await think_model.ainvoke(messages)
+            _pick_single_tool_call(response)
+            return response
+        except Exception as exc:
+            last_error = exc
+            if attempt >= max_attempts:
+                break
+    raise RuntimeError(f"react_think failed after {max_attempts} attempts.") from last_error
+
+
 async def react_think(
     state: LearnState,
     config: RunnableConfig,
@@ -202,10 +223,8 @@ async def react_think(
         react_turn=react_turn,
         max_react_turns=configurable.max_react_turns_per_subtask,
     )
-    breakpoint()
 
-    response = await think_model.ainvoke(messages)
-    _pick_single_tool_call(response)
+    response = await _invoke_react_think_with_retry(think_model, messages)
     return Command(
         goto="react_act",
         update={
