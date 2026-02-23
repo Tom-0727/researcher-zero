@@ -95,7 +95,7 @@ def search_semantic_scholar(
         results = []
         for paper in data.get("data", []):
             results.append({
-                "id": paper.get("paperId") or None,
+                # "id": paper.get("paperId") or None,
                 "title": paper.get("title") or "No title available",
                 "year": paper.get("year") or None,
                 "citations": paper.get("citationCount") or 0,

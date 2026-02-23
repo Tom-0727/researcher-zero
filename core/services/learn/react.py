@@ -10,8 +10,8 @@ from langgraph.types import Command
 from pydantic import BaseModel, Field
 
 from core.services.learn.configuration import LearnConfig
+from core.services.learn.context_loader import refresh_system_prompt
 from core.services.learn.prompts import (
-    get_react_skills_instruction,
     get_react_think_prompt,
     render_plan_view,
 )
@@ -65,15 +65,21 @@ def _render_condensed_history(condensed_messages: list[Any]) -> str:
     return "\n\n".join(rows) if rows else "(none)"
 
 
+def _skill_instruction_message(state: LearnState) -> str:
+    """Single message content: available skills (with YAML frontmatter descriptions) + usage instructions."""
+    return str(state.get("skill_runtime_prompt", "")).strip() or "(no skill instructions)"
+
+
 def _build_react_input_messages(
     *,
     state: LearnState,
+    system_prompt: str,
     react_turn: int,
     max_react_turns: int,
 ) -> list[Any]:
     """Build ordered message list for one ReAct think turn."""
     messages: list[Any] = [
-        SystemMessage(content=state["system_prompt"]),
+        SystemMessage(content=system_prompt),
         HumanMessage(content=f"Current plan:\n{render_plan_view(state.get('plan_items', []))}"),
         HumanMessage(
             content=(
@@ -82,7 +88,7 @@ def _build_react_input_messages(
             )
         ),
         HumanMessage(
-            content=str(state.get("skill_runtime_prompt", ""))
+            content=_skill_instruction_message(state)
         ),
         HumanMessage(
             content=get_react_think_prompt(
@@ -107,17 +113,33 @@ def _build_skill_tools(config: RunnableConfig) -> tuple[LearnConfig, list[Any], 
         allow_run_entry=True,
         command_timeout=configurable.skill_command_timeout,
         only_tools=["load_skill", "run_skill_entry"],
+        only_skills=["read", "search", "file_manage"],
     )
-    capability.prompt = """## Skills usage instructions
+    skills_block = "Available skills:\n" + capability.toolkit.list_available_skills()
+    capability.prompt = (
+        skills_block
+        + """
+
+## Skills usage instructions
 
 When you need a skill:
 1. Call **load_skill(skill_name)** first, the response describes what the skill does and how to use it.
 2. Call **run_skill_entry(skill_name, entry_args)**. **entry_args** is a single string: the CLI argument list you would pass to that skill's entry (same as on the command line). Use double quotes for values that contain spaces; the string is parsed with shell rules (e.g. `--provider semantic_scholar --query "your query"`). Copy the format from the examples in load_skill's response.
 
-
+Use the skills to help you complete the task. For example, you can use search skill firstly to find learning materials, then use read skill to read the materials(url or local file), and finally use file_manage skill to create or edit a file to save the knowledge.
 """
+    )
     tool_map = {tool_obj.name: tool_obj for tool_obj in capability.tools}
-    return configurable, capability.tools, tool_map
+    return configurable, capability.tools, tool_map, capability
+
+
+def get_react_skill_state_fragment(config: RunnableConfig) -> dict[str, Any]:
+    """Return skill_runtime_prompt and available_skills for LearnState (e.g. tests)."""
+    _, _, _, capability = _build_skill_tools(config)
+    return {
+        "skill_runtime_prompt": capability.prompt,
+        "available_skills": sorted(capability.toolkit.skills.keys()),
+    }
 
 
 def _normalize_tool_payload(payload: Any) -> str:
@@ -154,7 +176,7 @@ async def react_think(
     config: RunnableConfig,
 ) -> Command[Literal["react_act"]]:
     """Decide the next single action for the current subtask."""
-    configurable, skill_tools, _tool_map = _build_skill_tools(config)
+    configurable, skill_tools, _tool_map, _ = _build_skill_tools(config)
     actions = [*skill_tools, FinishSubtask]
     model_config = {
         "model": configurable.react_think_model,
@@ -170,18 +192,24 @@ async def react_think(
     )
 
     react_turn = state.get("react_turn", 0) + 1
+    fresh_system_prompt = refresh_system_prompt(
+        workspace=state["workspace"],
+        task=state["task"],
+    )
     messages = _build_react_input_messages(
         state=state,
+        system_prompt=fresh_system_prompt,
         react_turn=react_turn,
         max_react_turns=configurable.max_react_turns_per_subtask,
     )
-
     breakpoint()
+
     response = await think_model.ainvoke(messages)
     _pick_single_tool_call(response)
     return Command(
         goto="react_act",
         update={
+            "system_prompt": fresh_system_prompt,
             "react_messages": [*state.get("react_messages", []), response],
             "react_turn": react_turn,
         },
@@ -193,7 +221,7 @@ async def react_act(
     config: RunnableConfig,
 ) -> Command[Literal["react_should_stop"]]:
     """Execute one selected action and append tool output to trace."""
-    _, _skill_tools, tool_map = _build_skill_tools(config)
+    _, _skill_tools, tool_map, _ = _build_skill_tools(config)
     trace = state.get("react_messages", [])
     if not trace:
         raise ValueError("react_messages is empty before react_act.")

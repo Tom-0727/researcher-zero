@@ -87,9 +87,11 @@ def build_skill_capability(
   command_timeout: int = 60,
   allowed_entry_programs: Sequence[str] = ("python", "python3", "bash", "sh"),
   only_tools: Sequence[str] | None = None,
+  only_skills: Sequence[str] | None = None,
 ) -> SkillCapability:
   """
   only_tools: 若提供，则只包含这些名称的 tool（如 "list_available_skills", "load_skill" 等）；None 表示全部。
+  only_skills: 若提供，则仅加载这些 skill 名称；若存在缺失则抛 ValueError。
   """
   toolkit = SkillToolkit(
     roots=roots,
@@ -99,6 +101,7 @@ def build_skill_capability(
     allow_run_entry=allow_run_entry,
     command_timeout=command_timeout,
     allowed_entry_programs=allowed_entry_programs,
+    only_skills=only_skills,
   )
   tools = build_agent_tools(toolkit)
   if only_tools is not None:

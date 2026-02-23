@@ -142,6 +142,7 @@ async def plan_node(
         roots=configurable.skill_roots,
         allow_run_entry=True,
         command_timeout=configurable.skill_command_timeout,
+        only_skills = ["read", "search", "file_manage"],
     )
     payload = build_learn_context_payload(
         workspace=resolved_workspace,

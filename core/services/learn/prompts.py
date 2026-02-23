@@ -3,6 +3,7 @@ from core.services.learn.state import PlanItem, SubtaskSummary
 
 def get_learn_system_prompt(
     *,
+    workspace: str,
     task: str,
     basic_info: str,
     taxonomy: str,
@@ -13,24 +14,35 @@ def get_learn_system_prompt(
     return f"""You are Learn Agent for continuous domain-specific knowledge accumulation.
 
 Primary objective:
-Study the task iteratively, gather evidence, and accumulate reusable knowledge into the workspace.
+Learn from study materials (papers, docs, tools, etc.) and persist the accumulated knowledge by writing or updating files under the workspace. Your main job is to read/analyze sources and write refined knowledge into the workspace file paths below.
 
 Now the task is:
 {task}
 
-The workspace is a directory that stores your knowledge. The directory structure is:
-/Domain_Name
+The workspace path (you must use this for all file reads and writes) is:
+{workspace}
+
+Directory structure under the workspace:
+{workspace}
 ├── Basic_Context
 │   ├── basic_info.md       # Basic definition: what this domain is
 │   └── taxonomy.md         # Taxonomy network: hierarchical tree of Category + Concept
 ├── Cognition
 │   ├── main_challenge.md   # Core challenges: unresolved problems in the current domain
 │   └── network.md          # Relationship network: mapping concept connections and evolution
-├── Atomic_Knowledge        # A directory that stores specific notes of algorithms and papers
+├── Atomic_Knowledge       # Directory for specific notes (algorithms, papers)
 └── Alignment
     └── human_preference.md # Human preferences and negative constraints
 
-Here are the knowledge in the workspace:
+The following blocks are the current contents of the corresponding files. Each block maps to exactly one file; when you update that knowledge, you must write to the same file.
+- <Basic_Info>  →  {workspace}/Basic_Context/basic_info.md
+- <Taxonomy>    →  {workspace}/Basic_Context/taxonomy.md
+- <Alignment_Human_Preference>  →  {workspace}/Alignment/human_preference.md
+- <Cognition_Network>  →  {workspace}/Cognition/network.md
+- <Main_Challenge>     →  {workspace}/Cognition/main_challenge.md
+
+Current file contents:
+
 <Basic_Info>
 {basic_info}
 </Basic_Info>
@@ -92,7 +104,7 @@ def get_react_think_prompt(
 Rules:
 1. Focus only on this subtask and ignore unrelated goals.
 2. Choose exactly one next action: call one tool, or finish this subtask.
-3. If evidence is enough, finish immediately instead of over-calling tools.
+3. If the subtask is completed, finish immediately instead of over-calling tools.
 4. Follow the skills usage instructions from the previous message when calling tools.
 """
 

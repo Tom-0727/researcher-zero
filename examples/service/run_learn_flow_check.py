@@ -3,14 +3,13 @@ from pathlib import Path
 from typing import Any
 
 from core.services import learn_graph
-from core.services.learn.configuration import LearnConfig
 from core.services.learn.context_loader import build_learn_context_payload
 from core.services.learn.graph import (
     plan_node,
     run_react_subgraph as graph_run_react_subgraph,
 )
+from core.services.learn.react import get_react_skill_state_fragment
 from core.services.learn.state import PlanItem
-from core.tools.skill_meta_toolkit import build_skill_capability
 
 
 # 直接在此处修改测试配置，不再读取命令行参数。
@@ -96,20 +95,15 @@ async def run_react_subgraph_check() -> None:
     workspace = Path(WORKSPACE).expanduser().resolve()
     config = build_runnable_config()
     task = TASK.strip()
-    learn_config = LearnConfig.from_runnable_config(config)
     context_payload = build_learn_context_payload(workspace=str(workspace), task=task)
-    capability = build_skill_capability(
-        roots=learn_config.skill_roots,
-        allow_run_entry=True,
-        command_timeout=learn_config.skill_command_timeout,
-    )
+    skill_state = get_react_skill_state_fragment(config)
 
     react_state = {
         "workspace": str(workspace),
         "task": task,
         "messages": [],
         "system_prompt": context_payload["system_prompt"],
-        "skill_runtime_prompt": capability.prompt,
+        **skill_state,
         "plan_items": [PlanItem(id=1, title=task, status="doing")],
         "current_index": 0,
         "current_subtask_id": 1,
@@ -122,7 +116,7 @@ async def run_react_subgraph_check() -> None:
 
     print(f"[1/4] workspace: {workspace}")
     print("[2/4] building react-only state ...")
-    print(f"- skills_count: {len(capability.toolkit.skills)}")
+    print(f"- skills_count: {len(react_state['available_skills'])}")
 
     print("[3/4] invoking graph.run_react_subgraph ...")
     react_command = await graph_run_react_subgraph(state=react_state, config=config)

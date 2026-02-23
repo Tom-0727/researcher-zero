@@ -106,7 +106,16 @@ def _scan_examples(skill_dir: Path) -> tuple[SkillExample, ...]:
   return tuple(output)
 
 
-def discover_skills(roots: Sequence[str | Path]) -> dict[str, SkillRecord]:
+def discover_skills(
+  roots: Sequence[str | Path],
+  *,
+  only_skills: Sequence[str] | None = None,
+) -> dict[str, SkillRecord]:
+  requested = (
+    frozenset(name.strip() for name in only_skills if name.strip())
+    if only_skills is not None
+    else None
+  )
   output: dict[str, SkillRecord] = {}
   for root in roots:
     base = Path(root).expanduser().resolve()
@@ -119,6 +128,8 @@ def discover_skills(roots: Sequence[str | Path]) -> dict[str, SkillRecord]:
       description = (meta.get("description") or _infer_description(body)).strip()
       if not name or not description:
         continue
+      if requested is not None and name not in requested:
+        continue
       output[name] = SkillRecord(
         name=name,
         description=description,
@@ -128,6 +139,10 @@ def discover_skills(roots: Sequence[str | Path]) -> dict[str, SkillRecord]:
         entry=(meta.get("entry") or "").strip() or None,
         examples=_scan_examples(path.parent),
       )
+  if requested is not None:
+    missing = sorted(requested - set(output.keys()))
+    if missing:
+      raise ValueError(f"Requested skills not found: {', '.join(missing)}")
   return output
 
 
@@ -150,6 +165,7 @@ class SkillToolkit:
     allow_run_entry: bool = False,
     command_timeout: int = 60,
     allowed_entry_programs: Sequence[str] = ("python", "python3", "bash", "sh"),
+    only_skills: Sequence[str] | None = None,
   ) -> None:
     self.roots = [Path(roots).expanduser()] if isinstance(roots, (str, Path)) else [Path(x).expanduser() for x in roots]
     self.max_files = max_files
@@ -158,11 +174,12 @@ class SkillToolkit:
     self.allow_run_entry = allow_run_entry
     self.command_timeout = command_timeout
     self.allowed_entry_programs = tuple(allowed_entry_programs)
+    self.only_skills = tuple(only_skills) if only_skills is not None else None
     self.skills: dict[str, SkillRecord] = {}
     self.refresh()
 
   def refresh(self) -> None:
-    self.skills = discover_skills(self.roots)
+    self.skills = discover_skills(self.roots, only_skills=self.only_skills)
 
   def _skill(self, name: str) -> SkillRecord | None:
     return self.skills.get(name)

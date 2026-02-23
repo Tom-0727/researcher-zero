@@ -39,6 +39,21 @@ def load_required_context(workspace: Path) -> dict[str, str]:
     return loaded
 
 
+def refresh_system_prompt(*, workspace: str, task: str) -> str:
+    """Reload workspace context files and return a fresh system_prompt."""
+    workspace_path = resolve_workspace(workspace)
+    context = load_required_context(workspace_path)
+    return get_learn_system_prompt(
+        workspace=str(workspace_path),
+        task=task,
+        basic_info=context["basic_info"],
+        taxonomy=context["taxonomy"],
+        human_preference=context["human_preference"],
+        network=context["network"],
+        main_challenge=context["main_challenge"],
+    )
+
+
 def build_learn_context_payload(
     *,
     workspace: str,
@@ -50,6 +65,7 @@ def build_learn_context_payload(
     resolved_plan_file = resolve_plan_file(workspace_path, plan_file=plan_file)
     context = load_required_context(workspace_path)
     system_prompt = get_learn_system_prompt(
+        workspace=str(workspace_path),
         task=task,
         basic_info=context["basic_info"],
         taxonomy=context["taxonomy"],
