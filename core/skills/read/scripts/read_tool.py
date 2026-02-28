@@ -315,8 +315,19 @@ def _run_ingest(workspace: Path, args: argparse.Namespace) -> dict[str, Any]:
     if not source:
         raise ValueError("--source cannot be empty.")
 
+    def _load_cached_ingest(doc_id: str) -> dict[str, Any]:
+        """Return cached ingest metadata after validating chunk cache exists."""
+        meta = _load_meta(workspace, doc_id)
+        _load_chunks(workspace, doc_id)
+        return meta
+
     source_type: str
     if _is_url(source):
+        doc_id = _build_doc_id(source)
+        if not args.force and _doc_dir(workspace, doc_id).exists():
+            # Reuse existing ingest cache instead of failing on duplicate ingest.
+            return _load_cached_ingest(doc_id)
+
         content_type, raw = _download_url(source)
         if _looks_like_pdf_url(source) or "application/pdf" in content_type:
             text = _extract_pdf_text_from_bytes(raw)
@@ -330,6 +341,11 @@ def _run_ingest(workspace: Path, args: argparse.Namespace) -> dict[str, Any]:
         if not local_path.exists() or not local_path.is_file():
             raise FileNotFoundError(f"Source file not found: {local_path}")
         source = str(local_path)
+        doc_id = _build_doc_id(source)
+        if not args.force and _doc_dir(workspace, doc_id).exists():
+            # Reuse existing ingest cache instead of failing on duplicate ingest.
+            return _load_cached_ingest(doc_id)
+
         suffix = local_path.suffix.lower()
         if suffix == ".pdf":
             text = _extract_pdf_text_from_path(local_path)
@@ -343,7 +359,6 @@ def _run_ingest(workspace: Path, args: argparse.Namespace) -> dict[str, Any]:
         else:
             raise ValueError(f"Unsupported local file type: {suffix}")
 
-    doc_id = _build_doc_id(source)
     chunks = _chunk_text(text, args.chunk_size, args.chunk_overlap)
     title = args.title.strip() if args.title else _infer_title(source)
 
